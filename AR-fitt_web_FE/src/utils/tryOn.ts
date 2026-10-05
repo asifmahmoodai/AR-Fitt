@@ -17,3 +17,10 @@ export const getHostedTryOnUrl = (lensId?: string | null): string | null => {
 
   return null;
 };
+
+export const getHostedLensReference = (lensId?: string | null): string | null => {
+  const hostedUrl = getHostedTryOnUrl(lensId);
+  return hostedUrl
+    ? new URL(hostedUrl).pathname.split("/").filter(Boolean)[1] ?? null
+    : null;
+};

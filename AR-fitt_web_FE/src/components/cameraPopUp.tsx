@@ -3,7 +3,7 @@
 import React from "react";
 import { Modal, Fade, Box, IconButton } from "@mui/material";
 import CameraKitComponent from "./CameraKitComponent";
-import { getHostedTryOnUrl } from "../utils/tryOn";
+import { getHostedLensReference } from "../utils/tryOn";
 
 interface CameraPopUpProps {
   open: boolean;
@@ -14,7 +14,7 @@ interface CameraPopUpProps {
 }
 
 const CameraPopUp: React.FC<CameraPopUpProps> = ({ open, onClose,lensId  }) => {
-  const hostedUrl = getHostedTryOnUrl(lensId);
+  const hostedReference = getHostedLensReference(lensId);
 
   return (
     <Modal
@@ -34,21 +34,10 @@ const CameraPopUp: React.FC<CameraPopUpProps> = ({ open, onClose,lensId  }) => {
             rounded-xl bg-black
           "
         >
-            {hostedUrl ? (
-              <Box className="flex min-h-[320px] flex-col items-center justify-center gap-4 p-8 text-center text-white">
-                <p>This lens is hosted by Snap.</p>
-                <a
-                  href={hostedUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="rounded bg-yellow-400 px-5 py-3 font-bold text-black"
-                >
-                  Open Snap lens
-                </a>
-              </Box>
-            ) : (
-              <CameraKitComponent lensId={lensId} />
-            )}
+            <CameraKitComponent
+              lensId={hostedReference ?? lensId}
+              lensGroupId={hostedReference ? "hosted-lenses" : undefined}
+            />
 
           {/* A simple close button overlay */}
           <Box className="absolute top-4 right-4">
