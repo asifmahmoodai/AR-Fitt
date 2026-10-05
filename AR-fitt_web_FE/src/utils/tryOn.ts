@@ -17,10 +17,3 @@ export const getHostedTryOnUrl = (lensId?: string | null): string | null => {
 
   return null;
 };
-
-/** Camera Kit needs a bare Lens ID; hosted Snap links carry the lens UUID in their path. */
-export const getCameraKitLensId = (lensId?: string | null): string => {
-  const hostedUrl = getHostedTryOnUrl(lensId);
-  if (!hostedUrl) return lensId ?? "";
-  return new URL(hostedUrl).pathname.split("/").filter(Boolean)[1] ?? "";
-};
