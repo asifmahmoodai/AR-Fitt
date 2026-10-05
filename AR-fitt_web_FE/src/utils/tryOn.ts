@@ -1,4 +1,4 @@
-/** Hosted WebAR experiences must be opened on Snap's site; they are not Camera Kit Lens IDs. */
+/** Validate Hosted WebAR URLs so their reference can be loaded in the try-on popup. */
 export const getHostedTryOnUrl = (lensId?: string | null): string | null => {
   if (!lensId) return null;
 

@@ -19,7 +19,9 @@ interface CameraKitComponentProps {
 const FIXED_WIDTH = 640;
 const FIXED_HEIGHT = 480;
 const HOSTED_LENS_GROUP_ID = "hosted-lenses";
-const apiToken = process.env.REACT_APP_CAMERA_KIT_API_TOKEN || "eyJhbGciOiJIUzI1NiIsImtpZCI6IkNhbnZhc1MyU0hNQUNQcm9kIiwidHlwIjoiSldUIn0.eyJhdWQiOiJjYW52YXMtY2FudmFzYXBpIiwiaXNzIjoiY2FudmFzLXMyc3Rva2VuIiwibmJmIjoxNzQwMjcwOTI3LCJzdWIiOiJhYzBkYTlmYy0zOTEwLTQ3OTQtOWQxNi04M2Q5YTFjZTI5Yjd-U1RBR0lOR342MTc1Zjg3Yy0xODYyLTQwY2EtOWFlMi05M2MzZWZjYTdjMjkifQ.m8J0BZ8orqSb_NN_99xz3D31QTkWcLB2dGFKufL8HUs";
+const apiToken = process.env.REACT_APP_CAMERA_KIT_API_TOKEN?.trim();
+// The deployed site proxies these requests to Snap to avoid cross-origin transport failures.
+const apiHostname = process.env.REACT_APP_CAMERA_KIT_API_HOSTNAME || "camera-kit-api.snapar.com";
 
 // Lenses may live in either group; the first group containing the lens wins.
 const LENS_GROUP_IDS = (
@@ -94,7 +96,7 @@ const loadHostedLensEnvelope = async (reference: string): Promise<ArrayBuffer> =
     requestFrame.set(requestMessage, 5);
 
     const response = await fetch(
-        "https://camera-kit-api.snapar.com/com.snap.camerakit.v3.HostedLenses/GetLensByHostedReference",
+        `https://${apiHostname}/com.snap.camerakit.v3.HostedLenses/GetLensByHostedReference`,
         {
             method: "POST",
             credentials: "include",
@@ -194,7 +196,12 @@ const CameraKitComponent: React.FC<CameraKitComponentProps> = ({ lensId, lensGro
                 if (!lensId || lensId.includes("/")) {
                     throw new Error("This product does not have a Camera Kit Lens ID.");
                 }
-                const cameraKit = await bootstrapCameraKit({ apiToken }, (container) =>
+                if (!apiToken) {
+                    throw new Error("Camera Kit API token is not configured.");
+                }
+                // Camera Kit 1.3 consumes apiHostname at runtime, but omits it from its public bootstrap type.
+                const cameraKitConfiguration = { apiToken, apiHostname };
+                const cameraKit = await bootstrapCameraKit(cameraKitConfiguration, (container) =>
                     container.provides(
                         ConcatInjectable(lensSourcesFactory.token, () => hostedLensSource)
                     )
