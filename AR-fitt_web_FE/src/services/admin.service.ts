@@ -1,5 +1,6 @@
 import HTTPService from './base.service';
 import adminAuthService from './adminAuth.service';
+import { AppRelease } from './appRelease.service';
 
 export interface AdminUser {
   id: string;
@@ -101,6 +102,23 @@ export interface UpdateUserData {
 class AdminService {
   private baseURL = process.env.REACT_APP_NODE_BACKEND_BASE_URL;
   private adminAxios = adminAuthService.getAdminAxios();
+
+  async getAppRelease(): Promise<AppRelease | null> {
+    const response = await this.adminAxios.get('/admin/app-release');
+    return response.data.data;
+  }
+
+  async uploadApk(file: File, version: string, onProgress: (progress: number) => void): Promise<AppRelease> {
+    const data = new FormData();
+    data.append('apk', file);
+    data.append('version', version);
+    const response = await this.adminAxios.post('/admin/app-release', data, {
+      onUploadProgress: (event) => {
+        onProgress(Math.min(100, Math.round((event.loaded / (event.total || file.size)) * 100)));
+      },
+    });
+    return response.data.data;
+  }
 
   // User Management
   async getUsers(): Promise<AdminUser[]> {

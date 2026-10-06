@@ -111,7 +111,6 @@ class AdminAuthService {
         password
       });
 
-      console.log('Admin login response:', response.data); // Debug log
 
       if (response.data.status === 'success' && response.data.data) {
         const { admin, auth } = response.data.data;

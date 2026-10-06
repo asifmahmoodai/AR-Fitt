@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -34,6 +34,7 @@ import {
 } from '@mui/icons-material';
 import { useAdmin } from '../../context/adminContext';
 import { adminService, AdminCategory, CreateCategoryData } from '../../services/admin.service';
+import { AdminPageHeader } from './AdminUI';
 
 const CategoryManagement: React.FC = () => {
   const { state, dispatch } = useAdmin();
@@ -46,23 +47,21 @@ const CategoryManagement: React.FC = () => {
   });
   const [alert, setAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchCategories();
-  }, []);
-
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
     try {
-      dispatch({ type: 'SET_LOADING', payload: true });
+      setLoading(true);
       const categories = await adminService.getCategories();
       dispatch({ type: 'SET_CATEGORIES', payload: categories });
     } catch (error) {
       dispatch({ type: 'SET_ERROR', payload: 'Failed to fetch categories' });
       setAlert({ type: 'error', message: 'Failed to fetch categories' });
     } finally {
-      dispatch({ type: 'SET_LOADING', payload: false });
+      setLoading(false);
     }
-  };
+  }, [dispatch]);
+  useEffect(() => { void fetchCategories(); }, [fetchCategories]);
 
   const handleAdd = () => {
     setEditingCategory(null);
@@ -128,7 +127,7 @@ const CategoryManagement: React.FC = () => {
     return new Date(dateString).toLocaleDateString();
   };
 
-  if (state.loading) {
+  if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
         <CircularProgress />
@@ -138,11 +137,7 @@ const CategoryManagement: React.FC = () => {
 
   return (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4" component="h2">
-          Category Management
-        </Typography>
-        <Box display="flex" gap={2} alignItems="center">
+      <AdminPageHeader title="Categories" description="Organize products into clear, easy-to-browse collections.">
           <Button
             variant={viewMode === 'table' ? 'contained' : 'outlined'}
             onClick={() => setViewMode('table')}
@@ -164,8 +159,7 @@ const CategoryManagement: React.FC = () => {
           >
             Add Category
           </Button>
-        </Box>
-      </Box>
+      </AdminPageHeader>
 
       {alert && (
         <Alert
@@ -178,8 +172,8 @@ const CategoryManagement: React.FC = () => {
       )}
 
       {viewMode === 'table' ? (
-        <TableContainer component={Paper}>
-          <Table>
+        <TableContainer component={Paper} sx={{ maxHeight: 720 }}>
+          <Table stickyHeader aria-label="Categories table" sx={{ minWidth: 800 }}>
             <TableHead>
               <TableRow>
                 <TableCell>Name</TableCell>
@@ -208,6 +202,7 @@ const CategoryManagement: React.FC = () => {
                       label={category.type}
                       size="small"
                       color="primary"
+                      aria-label={`Edit ${category.name}`}
                     />
                   </TableCell>
                   <TableCell>{formatDate(category.createdAt)}</TableCell>
@@ -224,6 +219,7 @@ const CategoryManagement: React.FC = () => {
                       size="small"
                       onClick={() => handleDelete(category.id)}
                       color="error"
+                      aria-label={`Delete ${category.name}`}
                     >
                       <DeleteIcon />
                     </IconButton>

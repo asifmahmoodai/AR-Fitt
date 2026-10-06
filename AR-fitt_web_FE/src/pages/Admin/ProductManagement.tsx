@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -29,14 +29,18 @@ import {
   CardMedia,
   Avatar,
   Stack,
+  InputAdornment, TablePagination, ToggleButton, ToggleButtonGroup, Tooltip,
 } from '@mui/material';
 import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   Add as AddIcon,
+  SearchRounded, RefreshRounded, Inventory2Rounded, CategoryRounded, AutoAwesomeRounded, ViewListRounded, GridViewRounded,
 } from '@mui/icons-material';
 import { useAdmin } from '../../context/adminContext';
 import { adminService, AdminProduct, CreateProductData } from '../../services/admin.service';
+import { AdminEmptyState, AdminFilters, AdminPageHeader, AdminSelect, AdminStats } from './AdminUI';
+import { defaultProductFilters, filterProducts, ProductFilters } from '../../utils/adminFilters';
 
 const ProductManagement: React.FC = () => {
   const { state, dispatch } = useAdmin();
@@ -60,6 +64,23 @@ const ProductManagement: React.FC = () => {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [filters, setFilters] = useState<ProductFilters>({ ...defaultProductFilters });
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const filteredProducts = useMemo(() => filterProducts(state.products, filters), [state.products, filters]);
+  const safePage = Math.min(page, Math.max(0, Math.ceil(filteredProducts.length / rowsPerPage) - 1));
+  const visibleProducts = filteredProducts.slice(safePage * rowsPerPage, (safePage + 1) * rowsPerPage);
+  const filterCount = Object.entries(filters).filter(([key, value]) => key !== 'sort' && value !== '').length;
+  const updateFilter = (key: keyof ProductFilters, value: string) => setFilters((current) => ({ ...current, [key]: value }));
+  const clearFilters = () => setFilters({ ...defaultProductFilters });
+  const brands = Array.from(new Set(state.products.map((product) => product.brand?.trim()).filter(Boolean))).sort();
+  const currencies = Array.from(new Set(state.products.map((product) => product.currency?.trim()).filter(Boolean))).sort();
+  const invalidPrice = (filters.minPrice !== '' && Number(filters.minPrice) < 0) || (filters.maxPrice !== '' && Number(filters.maxPrice) < 0)
+    || (filters.minPrice !== '' && filters.maxPrice !== '' && Number(filters.minPrice) > Number(filters.maxPrice));
+  const productImage = (product: AdminProduct) => product.imageUrls?.[0]?.image_url
+    ? `${process.env.REACT_APP_NODE_BACKEND_BASE_URL || ''}/product_images/${product.imageUrls[0].image_url}` : '/assets/images/placeHolderImage.jpeg';
+  useEffect(() => { setPage(0); }, [filters]);
   
   // Dynamic form state for colors and sizes
   const [newColor, setNewColor] = useState({ color: '', colorHex: '#000000' });
@@ -120,32 +141,28 @@ const ProductManagement: React.FC = () => {
     setFormData({ ...formData, sizes: updatedSizes });
   };
 
-  useEffect(() => {
-    fetchProducts();
-    fetchCategories();
-  }, []);
-
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
     try {
-      dispatch({ type: 'SET_LOADING', payload: true });
+      setLoading(true);
       const products = await adminService.getProducts();
       dispatch({ type: 'SET_PRODUCTS', payload: products });
     } catch (error) {
       dispatch({ type: 'SET_ERROR', payload: 'Failed to fetch products' });
       setAlert({ type: 'error', message: 'Failed to fetch products' });
     } finally {
-      dispatch({ type: 'SET_LOADING', payload: false });
+      setLoading(false);
     }
-  };
+  }, [dispatch]);
 
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
     try {
       const categories = await adminService.getCategories();
       dispatch({ type: 'SET_CATEGORIES', payload: categories });
     } catch (error) {
       console.error('Failed to fetch categories:', error);
     }
-  };
+  }, [dispatch]);
+  useEffect(() => { void fetchProducts(); void fetchCategories(); }, [fetchProducts, fetchCategories]);
 
   const handleAdd = () => {
     setEditingProduct(null);
@@ -170,7 +187,7 @@ const ProductManagement: React.FC = () => {
   const handleEdit = (product: AdminProduct) => {
     setEditingProduct(product);
     setFormData({
-      categoryId: product.category?.id || '',
+      categoryId: product.category_id || product.category?.id || '',
       name: product.name || '',
       brand: product.brand || '',
       price: product.price || '',
@@ -306,7 +323,10 @@ const ProductManagement: React.FC = () => {
   };
 
   const formatPrice = (price: string, currency: string) => {
-    return `${currency} ${parseFloat(price).toFixed(2)}`;
+    const amount = Number(price);
+    if (!Number.isFinite(amount)) return '—';
+    try { return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(amount); }
+    catch { return `${currency || ''} ${amount.toFixed(2)}`.trim(); }
   };
 
   const formatGenderLabel = (value?: string | null) => {
@@ -314,7 +334,7 @@ const ProductManagement: React.FC = () => {
     return value.charAt(0).toUpperCase() + value.slice(1);
   };
 
-  if (state.loading) {
+  if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
         <CircularProgress />
@@ -324,34 +344,15 @@ const ProductManagement: React.FC = () => {
 
   return (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4" component="h2">
-          Product Management
-        </Typography>
-        <Box display="flex" gap={2} alignItems="center">
-          <Button
-            variant={viewMode === 'table' ? 'contained' : 'outlined'}
-            onClick={() => setViewMode('table')}
-            size="small"
-          >
-            Table View
-          </Button>
-          <Button
-            variant={viewMode === 'grid' ? 'contained' : 'outlined'}
-            onClick={() => setViewMode('grid')}
-            size="small"
-          >
-            Grid View
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={handleAdd}
-          >
-            Add Product
-          </Button>
-        </Box>
-      </Box>
+      <AdminPageHeader title="Products" description="Keep your catalogue organized and your try-ons configured.">
+        <Button variant="outlined" startIcon={<RefreshRounded />} onClick={() => { void fetchProducts(); void fetchCategories(); }}>Refresh</Button>
+        <Button variant="contained" startIcon={<AddIcon />} onClick={handleAdd}>Add product</Button>
+      </AdminPageHeader>
+      <AdminStats items={[
+        { label: 'Total products', value: state.products.length, detail: 'Products in your catalogue', icon: <Inventory2Rounded /> },
+        { label: 'Lenses configured', value: state.products.filter((product) => product.lens_id?.trim()).length, detail: 'Products with a try-on lens', icon: <AutoAwesomeRounded /> },
+        { label: 'Categories', value: new Set(state.products.map((product) => product.category_id || product.category?.id).filter(Boolean)).size, detail: 'Used in your catalogue', icon: <CategoryRounded /> },
+      ]} />
 
       {alert && (
         <Alert
@@ -363,9 +364,30 @@ const ProductManagement: React.FC = () => {
         </Alert>
       )}
 
+      <AdminFilters count={filterCount} onClear={clearFilters}>
+        <Grid item xs={12} md={6}><TextField fullWidth size="small" label="Search products" placeholder="Name, brand, category, or ID" type="search" value={filters.search} onChange={(event) => updateFilter('search', event.target.value)} InputProps={{ startAdornment: <InputAdornment position="start"><SearchRounded fontSize="small" /></InputAdornment> }} /></Grid>
+        <Grid item xs={6} md={3}><AdminSelect label="Category" value={filters.category} onChange={(value) => updateFilter('category', value)} options={[{ value: '', label: 'All categories' }, ...state.categories.map((category) => ({ value: category.id, label: category.name })), { value: 'uncategorized', label: 'Uncategorized' }]} /></Grid>
+        <Grid item xs={6} md={3}><AdminSelect label="Brand" value={filters.brand} onChange={(value) => updateFilter('brand', value)} options={[{ value: '', label: 'All brands' }, ...brands.map((brand) => ({ value: brand, label: brand }))]} /></Grid>
+        <Grid item xs={6} md={3}><AdminSelect label="Product gender" value={filters.gender} onChange={(value) => updateFilter('gender', value)} options={[{ value: '', label: 'All genders' }, { value: 'male', label: 'Male' }, { value: 'female', label: 'Female' }, { value: 'unisex', label: 'Unisex' }, { value: 'unspecified', label: 'Not specified' }]} /></Grid>
+        <Grid item xs={6} md={3}><AdminSelect label="Try-on lens" value={filters.lens} onChange={(value) => updateFilter('lens', value)} options={[{ value: '', label: 'All products' }, { value: 'ready', label: 'Lens configured' }, { value: 'missing', label: 'Missing lens' }]} /></Grid>
+        <Grid item xs={6} md={2}><AdminSelect label="Currency" value={filters.currency} onChange={(value) => updateFilter('currency', value)} options={[{ value: '', label: 'All currencies' }, ...currencies.map((currency) => ({ value: currency, label: currency }))]} /></Grid>
+        <Grid item xs={6} md={2}><TextField fullWidth size="small" label="Minimum price" type="number" value={filters.minPrice} onChange={(event) => updateFilter('minPrice', event.target.value)} inputProps={{ min: 0, step: 'any' }} error={invalidPrice} /></Grid>
+        <Grid item xs={6} md={2}><TextField fullWidth size="small" label="Maximum price" type="number" value={filters.maxPrice} onChange={(event) => updateFilter('maxPrice', event.target.value)} inputProps={{ min: 0, step: 'any' }} error={invalidPrice} helperText={invalidPrice ? 'Enter a valid non-negative price range.' : undefined} /></Grid>
+      </AdminFilters>
+
+      <Paper sx={{ overflow: 'hidden', mb: 2 }}>
+      <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ xs: 'stretch', sm: 'center' }} justifyContent="space-between" spacing={2} sx={{ p: 2 }}>
+        <Typography variant="body2" color="text.secondary" role="status">{filteredProducts.length.toLocaleString()} of {state.products.length.toLocaleString()} products</Typography>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Box sx={{ flexGrow: 1, width: { sm: 180 } }}><AdminSelect label="Sort products" value={filters.sort} onChange={(value) => updateFilter('sort', value)} options={[{ value: 'name-asc', label: 'Name: A to Z' }, { value: 'name-desc', label: 'Name: Z to A' }, { value: 'price-asc', label: 'Price: low to high' }, { value: 'price-desc', label: 'Price: high to low' }]} /></Box>
+          <ToggleButtonGroup size="small" value={viewMode} exclusive onChange={(_, value) => { if (value) setViewMode(value); }} aria-label="Product view">
+            <ToggleButton value="table" aria-label="Table view"><ViewListRounded fontSize="small" /></ToggleButton><ToggleButton value="grid" aria-label="Grid view"><GridViewRounded fontSize="small" /></ToggleButton>
+          </ToggleButtonGroup>
+        </Stack>
+      </Stack>
       {viewMode === 'table' ? (
-        <TableContainer component={Paper}>
-          <Table>
+        <TableContainer sx={{ maxHeight: 620 }}>
+          <Table stickyHeader aria-label="Products table" sx={{ minWidth: 940 }}>
             <TableHead>
               <TableRow>
                 <TableCell>Product</TableCell>
@@ -375,26 +397,29 @@ const ProductManagement: React.FC = () => {
                 <TableCell>Price</TableCell>
                 <TableCell>Colors</TableCell>
                 <TableCell>Sizes</TableCell>
-                <TableCell>Actions</TableCell>
+                <TableCell align="right">Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {state.products.map((product) => (
+              {visibleProducts.map((product) => (
                 <TableRow key={product.id}>
                   <TableCell>
-                    <Box>
+                    <Stack direction="row" spacing={1.5} alignItems="center">
+                      <Avatar variant="rounded" src={productImage(product)} alt={product.name} sx={{ width: 42, height: 42, bgcolor: 'primary.light', color: 'primary.main' }}><Inventory2Rounded fontSize="small" /></Avatar>
+                      <Box sx={{ minWidth: 170, maxWidth: 240 }}>
                       <Typography variant="body2" fontWeight="bold">
                         {product.name}
                       </Typography>
                       {product.description && (
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography variant="caption" color="text.secondary" noWrap component="div">
                           {product.description}
                         </Typography>
                       )}
-                    </Box>
+                      </Box>
+                    </Stack>
                   </TableCell>
                   <TableCell>
-                    {product.category?.name || 'N/A'}
+                    {product.category?.name || state.categories.find((category) => category.id === product.category_id)?.name || 'Uncategorized'}
                   </TableCell>
                   <TableCell>{formatGenderLabel(product.gender)}</TableCell>
                   <TableCell>{product.brand}</TableCell>
@@ -422,37 +447,46 @@ const ProductManagement: React.FC = () => {
                       ))}
                     </Box>
                   </TableCell>
-                  <TableCell>
+                <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+                    <Tooltip title="Edit product">
                     <IconButton
                       size="small"
                       onClick={() => handleEdit(product)}
                       color="primary"
+                      aria-label={`Edit ${product.name}`}
                     >
                       <EditIcon />
                     </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Delete product">
                     <IconButton
                       size="small"
                       onClick={() => handleDelete(product.id)}
                       color="error"
+                      aria-label={`Delete ${product.name}`}
                     >
                       <DeleteIcon />
                     </IconButton>
+                    </Tooltip>
                   </TableCell>
                 </TableRow>
               ))}
+              {filteredProducts.length === 0 && <TableRow><TableCell colSpan={8}><AdminEmptyState title={state.products.length ? 'No products match these filters' : 'No products yet'} description={state.products.length ? 'Try a different search, category, or price range.' : 'Add your first product to get started.'} onClear={filterCount ? clearFilters : undefined} /></TableCell></TableRow>}
             </TableBody>
           </Table>
         </TableContainer>
       ) : (
-        <Grid container spacing={3}>
-          {state.products.map((product) => (
+        <Grid container spacing={2} sx={{ p: 2 }}>
+          {visibleProducts.map((product) => (
             <Grid item xs={12} sm={6} md={4} key={product.id}>
               <Card>
                  <CardMedia
                    component="img"
                    height="200"
-                   image={product.imageUrls?.[0]?.image_url ? `${process.env.REACT_APP_NODE_BACKEND_BASE_URL || ''}/product_images/${product.imageUrls[0].image_url}` : '/placeholder-product.jpg'}
+                   image={productImage(product)}
                    alt={product.name}
+                   sx={{ height: 180, objectFit: 'cover', bgcolor: '#f8fafc' }}
+                   onError={(event: React.SyntheticEvent<HTMLImageElement>) => { if (!event.currentTarget.src.endsWith('/assets/images/placeHolderImage.jpeg')) event.currentTarget.src = '/assets/images/placeHolderImage.jpeg'; }}
                  />
                 <CardContent>
                   <Typography variant="h6" component="h3" gutterBottom>
@@ -498,8 +532,11 @@ const ProductManagement: React.FC = () => {
               </Card>
             </Grid>
           ))}
+          {filteredProducts.length === 0 && <Grid item xs={12}><AdminEmptyState title={state.products.length ? 'No products match these filters' : 'No products yet'} description="Try a different search or add a product." onClear={filterCount ? clearFilters : undefined} /></Grid>}
         </Grid>
       )}
+      <TablePagination component="div" count={filteredProducts.length} page={safePage} rowsPerPage={rowsPerPage} rowsPerPageOptions={[10,25,50]} onPageChange={(_, next) => setPage(next)} onRowsPerPageChange={(event) => { setRowsPerPage(Number(event.target.value)); setPage(0); }} />
+      </Paper>
 
       {/* Product Dialog */}
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>

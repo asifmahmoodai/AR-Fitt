@@ -1,8 +1,8 @@
-import React from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import Navbar from "../../components/navBar/navbar";
 import Footer from "../../components/footer";
-import { baseUrl } from "../../utils/constants/URLS";
-import { Button, Container, Typography, Box, Step, StepLabel, Stepper, Paper } from "@mui/material";
+import { AppRelease, formatApkSize, getApkDownloadUrl, getPublicAppRelease } from "../../services/appRelease.service";
+import { Alert, Button, Container, Typography, Box, Stepper, Paper } from "@mui/material";
 import AndroidIcon from '@mui/icons-material/Android';
 import GetAppIcon from '@mui/icons-material/GetApp';
 import SettingsIcon from '@mui/icons-material/Settings';
@@ -32,16 +32,17 @@ const steps = [
 ];
 
 const DownloadApp = () => {
-    const downloadUrl = `${baseUrl}/downloads/ARFitt.apk`;
-
-    const handleDownload = () => {
-        const link = document.createElement('a');
-        link.href = downloadUrl;
-        link.download = 'ARFitt.apk';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    };
+    const [release, setRelease] = useState<AppRelease | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(false);
+    const loadRelease = useCallback(async () => {
+        setLoading(true);
+        setError(false);
+        try { setRelease(await getPublicAppRelease()); }
+        catch { setError(true); }
+        finally { setLoading(false); }
+    }, []);
+    useEffect(() => { void loadRelease(); }, [loadRelease]);
 
     return (
         <div className="flex flex-col min-h-screen bg-gray-50">
@@ -58,7 +59,10 @@ const DownloadApp = () => {
                         variant="contained"
                         size="large"
                         startIcon={<AndroidIcon />}
-                        onClick={handleDownload}
+                        component="a"
+                        href={release && !loading && !error ? getApkDownloadUrl(release) : undefined}
+                        download="ARFitt.apk"
+                        disabled={loading || error || !release}
                         sx={{
                             backgroundColor: '#000',
                             color: '#fff',
@@ -74,8 +78,13 @@ const DownloadApp = () => {
                         Download APK (Android)
                     </Button>
                     <Typography variant="caption" display="block" className="mt-2 text-gray-500">
-                        Version 1.0.0 • Free Download
+                        {loading ? "Checking app availability…" : release && !error
+                            ? `Version ${release.version} · ${formatApkSize(release.size)} · Free download`
+                            : !error ? "The Android app will be available here soon." : ""}
                     </Typography>
+                    {error && <Alert severity="error" sx={{ mt: 2 }} action={<Button color="inherit" onClick={loadRelease}>Retry</Button>}>
+                        Unable to check the app download. Please try again.
+                    </Alert>}
                 </Box>
 
                 <Paper elevation={0} className="p-8 rounded-3xl bg-white border border-gray-100 shadow-sm">
