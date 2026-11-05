@@ -1,8 +1,8 @@
-import crypto from "crypto";
 import { APIResponse } from "../../infra/utils/api_response/APIResponse.js";
 import { APIResponseMessage } from "../../infra/utils/api_response/APIResponseMessage.js";
 import { APIResponseConstants } from "../../infra/utils/api_response/APIResponseConstants.js";
 import { CommonConstants } from "../../infra/utils/common/Constants.js";
+import { verifyPassword } from "../../middleware/crypto/passwordHashing.js";
 
 export class VerifyOTPUseCase {
   constructor(userOTPRespository, userRepository) {
@@ -51,9 +51,7 @@ export class VerifyOTPUseCase {
       );
     }
 
-    if (
-      !userOTP.validateOTP(crypto.createHash("sha1").update(otp).digest("hex"))
-    ) {
+    if (!(await verifyPassword(otp, userOTP.getOTPHash()))) {
       return new APIResponse(
         new APIResponseMessage(
           APIResponseConstants.INVALID_OTP_MESSAGE,

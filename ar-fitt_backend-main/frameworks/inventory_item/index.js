@@ -13,43 +13,45 @@ import { InventoryCategoryValidation } from "../../middleware/data_validation/In
 import { InventoryItemImageValidation } from "../../middleware/data_validation/InventoryItemImageValidation.js";
 import { InventoryItemValidation } from "../../middleware/data_validation/InventoryItemValidation.js";
 
-const inventoryItemRepository = new InventoryItemRepository();
-const inventoryItemColorRepository = new InventoryItemColorRepository();
-const inventoryItemImageURLRepository = new InventoryItemImageURLRepository();
-const inventoryItemImageRepository = new InventoryItemImageRepository();
-const inventoryItemSizeRepository = new InventoryItemSizeRepository();
-const authServiceMiddleware = new AuthServiceMiddleware();
-const commonHeaders = new Headers();
-const inventoryCategoryValidation = new InventoryCategoryValidation();
-const inventoryItemImageValidation = new InventoryItemImageValidation();
-const inventoryItemValidation = new InventoryItemValidation();
+export function buildInventoryItemController(appContext) {
+  const inventoryItemRepository = new InventoryItemRepository(appContext.prisma);
+  const inventoryItemColorRepository = new InventoryItemColorRepository(appContext.prisma);
+  const inventoryItemImageURLRepository = new InventoryItemImageURLRepository(appContext.prisma);
+  const inventoryItemImageRepository = new InventoryItemImageRepository(appContext.prisma);
+  const inventoryItemSizeRepository = new InventoryItemSizeRepository(appContext.prisma);
+  const authServiceMiddleware = new AuthServiceMiddleware(appContext.config);
+  const commonHeaders = new Headers();
+  const inventoryCategoryValidation = new InventoryCategoryValidation();
+  const inventoryItemImageValidation = new InventoryItemImageValidation();
+  const inventoryItemValidation = new InventoryItemValidation();
 
-const fetchCategoryInventoryItemsUseCase =
-  new FetchCategoryInventoryItemsUseCase(
+  const fetchCategoryInventoryItemsUseCase =
+    new FetchCategoryInventoryItemsUseCase(
+      inventoryItemRepository,
+      inventoryItemColorRepository,
+      inventoryItemImageURLRepository,
+      inventoryItemSizeRepository
+    );
+
+  const fetchInventoryItemImageUseCase = new FetchInventoryItemImageUseCase(
+    inventoryItemImageRepository
+  );
+
+  const fetchInventoryItemsUseCase = new FetchInventoryItemsUseCase(
     inventoryItemRepository,
     inventoryItemColorRepository,
     inventoryItemImageURLRepository,
     inventoryItemSizeRepository
   );
 
-const fetchInventoryItemImageUseCase = new FetchInventoryItemImageUseCase(
-  inventoryItemImageRepository
-);
-
-const fetchInventoryItemsUseCase = new FetchInventoryItemsUseCase(
-  inventoryItemRepository,
-  inventoryItemColorRepository,
-  inventoryItemImageURLRepository,
-  inventoryItemSizeRepository
-);
-
-export const inventoryItemController = new InventoryItemController(
-  fetchCategoryInventoryItemsUseCase,
-  fetchInventoryItemImageUseCase,
-  fetchInventoryItemsUseCase,
-  authServiceMiddleware,
-  commonHeaders,
-  inventoryCategoryValidation,
-  inventoryItemImageValidation,
-  inventoryItemValidation
-);
+  return new InventoryItemController(
+    fetchCategoryInventoryItemsUseCase,
+    fetchInventoryItemImageUseCase,
+    fetchInventoryItemsUseCase,
+    authServiceMiddleware,
+    commonHeaders,
+    inventoryCategoryValidation,
+    inventoryItemImageValidation,
+    inventoryItemValidation
+  );
+}

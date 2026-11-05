@@ -1,12 +1,13 @@
-import { PrismaClient } from "@prisma/client";
 import { UserFaceMatrix } from "../../../entities/UserFaceMatrix.js";
 
-const prisma = new PrismaClient();
-
 export class UserFaceMatrixRepository {
+  constructor(prisma) {
+    this.prisma = prisma;
+  }
+
   async createUserFaceMatrix(faceMatrix) {
     try {
-      await prisma.user_face_matrix.create({
+      await this.prisma.user_face_matrix.create({
         data: {
           user_id: faceMatrix.getUserID(),
           face_matrix: faceMatrix.getFaceMatrix(),
@@ -23,7 +24,7 @@ export class UserFaceMatrixRepository {
 
   async getUserFaceMatrixByUserID(userID) {
     try {
-      const result = await prisma.user_face_matrix.findUnique({
+      const result = await this.prisma.user_face_matrix.findUnique({
         where: {
           user_id: userID,
         },
@@ -48,7 +49,7 @@ export class UserFaceMatrixRepository {
 
   async updateUserFaceMatrix(faceMatrix) {
     try {
-      await prisma.user_face_matrix.update({
+      await this.prisma.user_face_matrix.update({
         where: {
           user_id: faceMatrix.getUserID(),
         },
@@ -66,7 +67,7 @@ export class UserFaceMatrixRepository {
 
   async deleteUserFaceMatrix(userID) {
     try {
-      await prisma.user_face_matrix.delete({
+      await this.prisma.user_face_matrix.delete({
         where: {
           user_id: userID,
         },

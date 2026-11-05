@@ -3,7 +3,7 @@ import { APIResponseConstants } from "../../infra/utils/api_response/APIResponse
 import { APIResponseMessage } from "../../infra/utils/api_response/APIResponseMessage.js";
 
 const userSchema = Joi.object({
-  email: Joi.string().email().required(),
+  email: Joi.string().email({ tlds: { allow: false } }).required(),
   firstName: Joi.string().required(),
   lastName: Joi.string().required(),
   password: Joi.string().required(),

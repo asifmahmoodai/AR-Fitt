@@ -1,12 +1,13 @@
-import { PrismaClient } from "@prisma/client";
 import { UserSubscription } from "../../../entities/UserSubscription.js";
 
-const prisma = new PrismaClient();
-
 export class UserSubscriptionRepository {
+  constructor(prisma) {
+    this.prisma = prisma;
+  }
+
   async createUserSubscription(userSubscription) {
     try {
-      await prisma.user_subscription.create({
+      await this.prisma.user_subscription.create({
         data: {
           user_id: userSubscription.getUserID(),
           subscription_plan_id: userSubscription.getSubscriptionPlanID(),
@@ -24,7 +25,7 @@ export class UserSubscriptionRepository {
 
   async getUserSubscriptionByUserID(userID) {
     try {
-      const result = await prisma.user_subscription.findUnique({
+      const result = await this.prisma.user_subscription.findUnique({
         where: {
           user_id: userID,
         },
@@ -50,7 +51,7 @@ export class UserSubscriptionRepository {
 
   async updateUserSubscriptionPlan(userSubscription) {
     try {
-      await prisma.user_subscription.update({
+      await this.prisma.user_subscription.update({
         where: {
           user_id: userSubscription.getUserID(),
         },
@@ -67,7 +68,7 @@ export class UserSubscriptionRepository {
 
   async deleteUserSubscriptionByUserID(userID) {
     try {
-      await prisma.user_subscription.delete({
+      await this.prisma.user_subscription.delete({
         where: {
           user_id: userID,
         },

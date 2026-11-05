@@ -1,12 +1,13 @@
-import { PrismaClient } from "@prisma/client";
 import { UserBodyMatrix } from "../../../entities/UserBodyMatrix.js";
 
-const prisma = new PrismaClient();
-
 export class UserBodyMatrixRepository {
+  constructor(prisma) {
+    this.prisma = prisma;
+  }
+
   async createUserBodyMatrix(userBodyMatrix) {
     try {
-      await prisma.user_body_matrix.create({
+      await this.prisma.user_body_matrix.create({
         data: {
           user_id: userBodyMatrix.getUserID(),
           body_matrix: userBodyMatrix.getBodyMatrix(),
@@ -23,7 +24,7 @@ export class UserBodyMatrixRepository {
 
   async updateUserBodyMatrix(userBodyMatrix) {
     try {
-      await prisma.user_body_matrix.update({
+      await this.prisma.user_body_matrix.update({
         where: { user_id: userBodyMatrix.getUserID() },
         data: {
           body_matrix: userBodyMatrix.getBodyMatrix(),
@@ -39,7 +40,7 @@ export class UserBodyMatrixRepository {
 
   async deleteUserBodyMatrix(userID) {
     try {
-      await prisma.user_body_matrix.delete({
+      await this.prisma.user_body_matrix.delete({
         where: { user_id: userID },
       });
       return null;
@@ -51,7 +52,7 @@ export class UserBodyMatrixRepository {
 
   async getUserBodyMatrixByUserID(userID) {
     try {
-      const result = await prisma.user_body_matrix.findUnique({
+      const result = await this.prisma.user_body_matrix.findUnique({
         where: {
           user_id: userID,
         },

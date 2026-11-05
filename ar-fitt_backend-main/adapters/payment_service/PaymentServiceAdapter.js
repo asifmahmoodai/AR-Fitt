@@ -1,17 +1,21 @@
-import { EnvironmentVariables } from "../../infra/config/environment/EnvironmentVariables.js";
 import { CommonConstants } from "../../infra/utils/common/Constants.js";
 import Stripe from "stripe";
 
-const stripe = Stripe(EnvironmentVariables.PAYMENT_SERVICE_API_KEY);
-
 export class PaymentServiceAdapter {
+  constructor(config) {
+    this.config = config;
+    this.stripe = new Stripe(config.PAYMENT_SERVICE_API_KEY, {
+      httpClient: Stripe.createFetchHttpClient(),
+    });
+  }
+
   async getProducts() {
     const productQueryParams = {
       active: true,
       limit: 3,
     };
 
-    return stripe.products
+    return this.stripe.products
       .list(productQueryParams)
       .then((products) => {
         return [products.data, null];
@@ -28,7 +32,7 @@ export class PaymentServiceAdapter {
       active: true,
       limit: 1,
     };
-    return stripe.prices
+    return this.stripe.prices
       .list(priceQueryParams)
       .then((prices) => {
         return [prices.data, null];
@@ -43,7 +47,7 @@ export class PaymentServiceAdapter {
   }
 
   async getPriceDetails(priceID) {
-    return stripe.prices
+    return this.stripe.prices
       .retrieve(priceID)
       .then((price) => {
         return [price, null];
@@ -58,7 +62,7 @@ export class PaymentServiceAdapter {
   }
 
   async getProductDetails(productID) {
-    return stripe.products
+    return this.stripe.products
       .retrieve(productID)
       .then((product) => {
         return [product, null];
@@ -82,24 +86,24 @@ export class PaymentServiceAdapter {
           quantity: 1,
         },
       ],
-      success_url: EnvironmentVariables.PAYMENT_SERVICE_SUCCESS_URL,
-      cancel_url: EnvironmentVariables.PAYMENT_SERVICE_CANCEL_URL,
+      success_url: this.config.PAYMENT_SERVICE_SUCCESS_URL,
+      cancel_url: this.config.PAYMENT_SERVICE_CANCEL_URL,
     };
     sessionParams = { ...sessionParams, ...params };
 
-    return stripe.checkout.sessions
+    return this.stripe.checkout.sessions
       .create(sessionParams)
       .then((session) => {
         return [session.url, null];
       })
       .catch((error) => {
         console.log("failed to create checkout session, error: ", error);
-        return [null, null];
+        return [null, error];
       });
   }
 
   async retrieveCheckoutSession(sessionID) {
-    return stripe.checkout.sessions
+    return this.stripe.checkout.sessions
       .retrieve(sessionID)
       .then((session) => {
         return [session, null];
@@ -112,10 +116,12 @@ export class PaymentServiceAdapter {
 
   async verifyWebhookSignature(requestBody, signature) {
     try {
-      const event = stripe.webhooks.constructEvent(
+      const event = await this.stripe.webhooks.constructEventAsync(
         requestBody,
         signature,
-        EnvironmentVariables.PAYMENT_SERVICE_WEBHOOK_API_KEY
+        this.config.PAYMENT_SERVICE_WEBHOOK_API_KEY,
+        undefined,
+        Stripe.createSubtleCryptoProvider()
       );
       return [event.data, event.type, null];
     } catch (err) {
@@ -125,7 +131,7 @@ export class PaymentServiceAdapter {
   }
 
   async retrieveSubscription(subscriptionID) {
-    return await stripe.subscriptions
+    return await this.stripe.subscriptions
       .retrieve(subscriptionID)
       .then((subscription) => {
         return [subscription, null];
@@ -138,7 +144,7 @@ export class PaymentServiceAdapter {
 
   async updateSubscription(subscriptionID, priceID, invoiceID, prorationDate) {
     try {
-      await stripe.subscriptions.update(subscriptionID, {
+      await this.stripe.subscriptions.update(subscriptionID, {
         items: [{ id: invoiceID, price: priceID }],
         proration_date: prorationDate,
       });
@@ -154,7 +160,7 @@ export class PaymentServiceAdapter {
     cancelAfterPeriod
   ) {
     try {
-      await stripe.subscriptions.update(subscriptionID, {
+      await this.stripe.subscriptions.update(subscriptionID, {
         cancel_at_period_end: cancelAfterPeriod,
       });
       return null;
@@ -166,7 +172,7 @@ export class PaymentServiceAdapter {
 
   async cancelSubscription(subscriptionID) {
     try {
-      await stripe.subscriptions.cancel(subscriptionID);
+      await this.stripe.subscriptions.cancel(subscriptionID);
       return null;
     } catch (error) {
       console.log("failed to delete subscription, error: ", error);

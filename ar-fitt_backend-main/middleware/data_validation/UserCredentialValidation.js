@@ -3,7 +3,7 @@ import { APIResponseConstants } from "../../infra/utils/api_response/APIResponse
 import { APIResponseMessage } from "../../infra/utils/api_response/APIResponseMessage.js";
 
 const userCredentialSchema = Joi.object({
-  email: Joi.string().email().required(),
+  email: Joi.string().email({ tlds: { allow: false } }).required(),
   password: Joi.string().required(),
 });
 

@@ -1,4 +1,4 @@
-import express from "express";
+import { mountExpressController } from "../../hono/expressCompat.js";
 import { APIResponseMessage } from "../../../infra/utils/api_response/APIResponseMessage.js";
 import { APIResponseConstants } from "../../../infra/utils/api_response/APIResponseConstants.js";
 import { CommonConstants } from "../../../infra/utils/common/Constants.js";
@@ -94,7 +94,7 @@ export class UserController {
 
     const clientType = req.headers[CommonConstants.CLIENT_TYPE];
 
-    const token = this.authService.generateToken(
+    const token = await this.authService.generateToken(
       useCaseResponse.getResponseMessage().getMessage().getID(),
       clientType,
       CommonConstants.REGISTERED_USER_TYPE
@@ -165,7 +165,7 @@ export class UserController {
       userType = CommonConstants.REGISTERED_USER_TYPE;
     }
 
-    const token = this.authService.generateToken(
+    const token = await this.authService.generateToken(
       user.getID(),
       clientType,
       userType
@@ -398,96 +398,81 @@ export class UserController {
     }
   }
 
-  createExpressController() {
-    const router = new express.Router();
+  static registerRoutes(app, buildController) {
+    const router = mountExpressController(app, buildController);
     router.post(
       "/user/signUp",
-      this.commonHeaders.addCommonHeaders.bind(this),
-      this.userValidation.validate.bind(this),
-      this.registerUser.bind(this)
+      (c, req, res, next) => c.commonHeaders.addCommonHeaders(req, res, next),
+      (c, req, res, next) => c.userValidation.validate(req, res, next),
+      (c, req, res) => c.registerUser(req, res)
     );
     router.post(
       "/user/login",
-      this.commonHeaders.addCommonHeaders.bind(this),
-      this.userCredentialValidation.validate.bind(this),
-      this.verifyUserCredential.bind(this)
+      (c, req, res, next) => c.commonHeaders.addCommonHeaders(req, res, next),
+      (c, req, res, next) => c.userCredentialValidation.validate(req, res, next),
+      (c, req, res) => c.verifyUserCredential(req, res)
     );
     router.get(
       "/user/userExists",
-      this.commonHeaders.addCommonHeaders.bind(this),
-      this.authServiceMiddleware.verifyToken.bind(
-        this,
-        CommonConstants.ONLY_REGISTERED_USER_ACCESS
-      ),
-      this.emailValidation.validate.bind(this),
-      this.verifyUserExistence.bind(this)
+      (c, req, res, next) => c.commonHeaders.addCommonHeaders(req, res, next),
+      (c, req, res, next) =>
+        c.authServiceMiddleware.verifyToken(CommonConstants.ONLY_REGISTERED_USER_ACCESS, req, res, next),
+      (c, req, res, next) => c.emailValidation.validate(req, res, next),
+      (c, req, res) => c.verifyUserExistence(req, res)
     );
     router.get(
       "/user/forgetPassword",
-      this.commonHeaders.addCommonHeaders.bind(this),
-      this.emailValidation.validate.bind(this),
-      this.requestPasswordReset.bind(this)
+      (c, req, res, next) => c.commonHeaders.addCommonHeaders(req, res, next),
+      (c, req, res, next) => c.emailValidation.validate(req, res, next),
+      (c, req, res) => c.requestPasswordReset(req, res)
     );
     router.post(
       "/user/resetPassword",
-      this.commonHeaders.addCommonHeaders.bind(this),
-      this.authServiceMiddleware.verifyToken.bind(
-        this,
-        CommonConstants.ONLY_REGISTERED_USER_ACCESS
-      ),
-      this.userCredentialValidation.validate.bind(this),
-      this.resetUserCredential.bind(this)
+      (c, req, res, next) => c.commonHeaders.addCommonHeaders(req, res, next),
+      (c, req, res, next) =>
+        c.authServiceMiddleware.verifyToken(CommonConstants.ONLY_REGISTERED_USER_ACCESS, req, res, next),
+      (c, req, res, next) => c.userCredentialValidation.validate(req, res, next),
+      (c, req, res) => c.resetUserCredential(req, res)
     );
     router.get(
       "/user/requestOTP",
-      this.commonHeaders.addCommonHeaders.bind(this),
-      this.authServiceMiddleware.verifyToken.bind(
-        this,
-        CommonConstants.ONLY_REGISTERED_USER_ACCESS
-      ),
-      this.emailValidation.validate.bind(this),
-      this.requestOTP.bind(this)
+      (c, req, res, next) => c.commonHeaders.addCommonHeaders(req, res, next),
+      (c, req, res, next) =>
+        c.authServiceMiddleware.verifyToken(CommonConstants.ONLY_REGISTERED_USER_ACCESS, req, res, next),
+      (c, req, res, next) => c.emailValidation.validate(req, res, next),
+      (c, req, res) => c.requestOTP(req, res)
     );
     router.post(
       "/user/verifyOTP",
-      this.commonHeaders.addCommonHeaders.bind(this),
-      this.authServiceMiddleware.verifyToken.bind(
-        this,
-        CommonConstants.ONLY_REGISTERED_USER_ACCESS
-      ),
-      this.verifyOTPValidation.validate.bind(this),
-      this.verifyOTP.bind(this)
+      (c, req, res, next) => c.commonHeaders.addCommonHeaders(req, res, next),
+      (c, req, res, next) =>
+        c.authServiceMiddleware.verifyToken(CommonConstants.ONLY_REGISTERED_USER_ACCESS, req, res, next),
+      (c, req, res, next) => c.verifyOTPValidation.validate(req, res, next),
+      (c, req, res) => c.verifyOTP(req, res)
     );
     router.post(
       "/user/updateUser",
-      this.commonHeaders.addCommonHeaders.bind(this),
-      this.authServiceMiddleware.verifyToken.bind(
-        this,
-        CommonConstants.ONLY_REGISTERED_USER_ACCESS
-      ),
-      this.updateUserValidation.validate.bind(this),
-      this.updateUser.bind(this)
+      (c, req, res, next) => c.commonHeaders.addCommonHeaders(req, res, next),
+      (c, req, res, next) =>
+        c.authServiceMiddleware.verifyToken(CommonConstants.ONLY_REGISTERED_USER_ACCESS, req, res, next),
+      (c, req, res, next) => c.updateUserValidation.validate(req, res, next),
+      (c, req, res) => c.updateUser(req, res)
     );
     router.get(
       "/user/subscriptionStatus",
-      this.commonHeaders.addCommonHeaders.bind(this),
-      this.authServiceMiddleware.verifyToken.bind(
-        this,
-        CommonConstants.ONLY_REGISTERED_USER_ACCESS
-      ),
-      this.emailValidation.validate.bind(this),
-      this.subscriptionStatus.bind(this)
+      (c, req, res, next) => c.commonHeaders.addCommonHeaders(req, res, next),
+      (c, req, res, next) =>
+        c.authServiceMiddleware.verifyToken(CommonConstants.ONLY_REGISTERED_USER_ACCESS, req, res, next),
+      (c, req, res, next) => c.emailValidation.validate(req, res, next),
+      (c, req, res) => c.subscriptionStatus(req, res)
     );
     router.get(
       "/user/subscription",
-      this.commonHeaders.addCommonHeaders.bind(this),
-      this.authServiceMiddleware.verifyToken.bind(
-        this,
-        CommonConstants.ONLY_REGISTERED_USER_ACCESS
-      ),
-      this.emailValidation.validate.bind(this),
-      this.userSubscriptionDetails.bind(this)
+      (c, req, res, next) => c.commonHeaders.addCommonHeaders(req, res, next),
+      (c, req, res, next) =>
+        c.authServiceMiddleware.verifyToken(CommonConstants.ONLY_REGISTERED_USER_ACCESS, req, res, next),
+      (c, req, res, next) => c.emailValidation.validate(req, res, next),
+      (c, req, res) => c.userSubscriptionDetails(req, res)
     );
-    return router;
   }
 }

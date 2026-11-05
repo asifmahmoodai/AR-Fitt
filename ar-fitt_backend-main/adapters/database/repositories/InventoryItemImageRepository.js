@@ -1,12 +1,13 @@
-import { PrismaClient } from "@prisma/client";
 import { InventoryItemImage } from "../../../entities/InventoryItemImage.js";
 
-const prisma = new PrismaClient();
-
 export class InventoryItemImageRepository {
+  constructor(prisma) {
+    this.prisma = prisma;
+  }
+
   async getInventoryItemImage(itemID, imageID) {
     try {
-      const result = await prisma.inventory_item_image.findFirst({
+      const result = await this.prisma.inventory_item_image.findFirst({
         where: {
           id: imageID,
           item_id: itemID,

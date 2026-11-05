@@ -21,5 +21,4 @@ export const EnvironmentVariables = {
     process.env.SIGN_ACCESS_TOKEN_PRIVATE_KEY || "your-super-secret-access-token-key-here-must-be-very-long-and-secure-for-jwt-signing",
   SIGN_REFRESH_TOKEN_PRIVATE_KEY:
     process.env.SIGN_REFRESH_TOKEN_PRIVATE_KEY || "your-super-secret-refresh-token-key-here-must-be-very-long-and-secure-for-jwt-signing",
-  OPENAI_API_KEY: process.env.OPENAI_API_KEY || "",
 };

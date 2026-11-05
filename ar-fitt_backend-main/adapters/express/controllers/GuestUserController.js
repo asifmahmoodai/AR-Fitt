@@ -1,4 +1,4 @@
-import express from "express";
+import { mountExpressController } from "../../hono/expressCompat.js";
 import { APIResponseMessage } from "../../../infra/utils/api_response/APIResponseMessage.js";
 import { APIResponseConstants } from "../../../infra/utils/api_response/APIResponseConstants.js";
 import { CommonConstants } from "../../../infra/utils/common/Constants.js";
@@ -46,7 +46,7 @@ export class GuestUserController {
     }
 
     const clientType = req.headers[CommonConstants.CLIENT_TYPE];
-    const token = this.authService.generateToken(
+    const token = await this.authService.generateToken(
       useCaseResponse.getResponseMessage().getMessage().getID(),
       clientType,
       CommonConstants.GUEST_USER_TYPE
@@ -76,14 +76,13 @@ export class GuestUserController {
       .send(JSON.stringify(useCaseResponse.getResponseMessage()));
   }
 
-  createExpressController() {
-    const router = new express.Router();
+  static registerRoutes(app, buildController) {
+    const router = mountExpressController(app, buildController);
     router.post(
       "/signUpGuest",
-      this.commonHeaders.addCommonHeaders.bind(this),
-      this.guestUserValidation.validate.bind(this),
-      this.registerGuestUser.bind(this)
+      (c, req, res, next) => c.commonHeaders.addCommonHeaders(req, res, next),
+      (c, req, res, next) => c.guestUserValidation.validate(req, res, next),
+      (c, req, res) => c.registerGuestUser(req, res)
     );
-    return router;
   }
 }

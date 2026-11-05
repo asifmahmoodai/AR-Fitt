@@ -3,10 +3,12 @@ import { AuthService } from "../../middleware/authorization_service/usecases/Aut
 import { RefreshTokenUseCase } from "../../usecases/authorization_service/RefreshToken.js";
 import { Headers } from "../../middleware/common/headers.js";
 
-const authServiceMiddleware = new AuthService();
-const commonHeaders = new Headers();
+// Rebuilt once per request (see adapters/hono/expressCompat.js).
+export function buildAuthorizationServiceController(appContext) {
+  const authService = new AuthService(appContext.config);
+  const commonHeaders = new Headers();
 
-const refreshTokenUseCase = new RefreshTokenUseCase(authServiceMiddleware);
+  const refreshTokenUseCase = new RefreshTokenUseCase(authService);
 
-export const authorizationServiceController =
-  new AuthorizationServiceController(refreshTokenUseCase, commonHeaders);
+  return new AuthorizationServiceController(refreshTokenUseCase, commonHeaders);
+}

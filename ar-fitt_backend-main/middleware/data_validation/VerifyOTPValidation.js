@@ -4,7 +4,7 @@ import { APIResponseMessage } from "../../infra/utils/api_response/APIResponseMe
 import { CommonConstants } from "../../infra/utils/common/Constants.js";
 
 const verifyOTPSchema = Joi.object({
-  email: Joi.string().email().required(),
+  email: Joi.string().email({ tlds: { allow: false } }).required(),
   otp: Joi.string()
     .min(CommonConstants.OTP_LENGTH)
     .max(CommonConstants.OTP_LENGTH)

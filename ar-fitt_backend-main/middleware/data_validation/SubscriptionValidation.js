@@ -3,13 +3,13 @@ import { APIResponseConstants } from "../../infra/utils/api_response/APIResponse
 import { APIResponseMessage } from "../../infra/utils/api_response/APIResponseMessage.js";
 
 const subscriptionSchema = Joi.object({
-  userEmail: Joi.string().email().required(),
+  userEmail: Joi.string().email({ tlds: { allow: false } }).required(),
   priceID: Joi.string().required(),
 });
 
 export class SubscriptionValidation {
   validate(req, res, next) {
-    const { userEmail, priceID } = req.body;
+    const { userEmail, priceID } = req.body || {};
     const validationResult = subscriptionSchema.validate(
       { userEmail, priceID },
       { abortEarly: false }
@@ -20,7 +20,7 @@ export class SubscriptionValidation {
         .send(
           JSON.stringify(
             new APIResponseMessage(
-              validationResult.error,
+              validationResult.error.details.map((detail) => detail.message).join(" "),
               APIResponseConstants.INVALID_DATA_IN_REQUEST
             )
           )

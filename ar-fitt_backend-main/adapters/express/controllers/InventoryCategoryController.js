@@ -1,4 +1,4 @@
-import express from "express";
+import { mountExpressController } from "../../hono/expressCompat.js";
 import { APIResponseMessage } from "../../../infra/utils/api_response/APIResponseMessage.js";
 import { APIResponseConstants } from "../../../infra/utils/api_response/APIResponseConstants.js";
 import { CommonConstants } from "../../../infra/utils/common/Constants.js";
@@ -62,28 +62,21 @@ export class InventoryCategoryController {
     }
   }
 
-  createExpressController() {
-    const router = new express.Router();
+  static registerRoutes(app, buildController) {
+    const router = mountExpressController(app, buildController);
     router.get(
       "/inventoryCategories",
-      this.commonHeaders.addCommonHeaders.bind(this),
-      this.authServiceMiddleware.verifyToken.bind(
-        this,
-        CommonConstants.ALL_USERS_ACCESS
-      ),
-      this.inventoryCategoriesValidation.validate.bind(this),
-      this.fetchInventoryCategories.bind(this)
+      (c, req, res, next) => c.commonHeaders.addCommonHeaders(req, res, next),
+      (c, req, res, next) => c.authServiceMiddleware.verifyToken(CommonConstants.ALL_USERS_ACCESS, req, res, next),
+      (c, req, res, next) => c.inventoryCategoriesValidation.validate(req, res, next),
+      (c, req, res) => c.fetchInventoryCategories(req, res)
     );
     router.get(
       "/inventoryCategory",
-      this.commonHeaders.addCommonHeaders.bind(this),
-      this.authServiceMiddleware.verifyToken.bind(
-        this,
-        CommonConstants.ALL_USERS_ACCESS
-      ),
-      this.inventoryCategoryValidation.validate.bind(this),
-      this.fetchInventoryCategory.bind(this)
+      (c, req, res, next) => c.commonHeaders.addCommonHeaders(req, res, next),
+      (c, req, res, next) => c.authServiceMiddleware.verifyToken(CommonConstants.ALL_USERS_ACCESS, req, res, next),
+      (c, req, res, next) => c.inventoryCategoryValidation.validate(req, res, next),
+      (c, req, res) => c.fetchInventoryCategory(req, res)
     );
-    return router;
   }
 }

@@ -1,18 +1,15 @@
-import express from "express";
+import { mountExpressController } from "../../hono/expressCompat.js";
 import util from "util";
-import bodyParser from "body-parser";
 import { fileTypeFromBuffer } from "file-type";
 import { APIResponseMessage } from "../../../infra/utils/api_response/APIResponseMessage.js";
 import { APIResponseConstants } from "../../../infra/utils/api_response/APIResponseConstants.js";
 import { CommonConstants } from "../../../infra/utils/common/Constants.js";
 
-import { PrismaClient } from "@prisma/client";
 import { User } from "../../../entities/User.js";
 
 import { APIResponse } from "../../../infra/utils/api_response/APIResponse.js";
-import { getRecommendations } from "../../../infra/services/RecommendationService.js";
 
-const prisma = new PrismaClient();
+// For Node.js versions earlier than 18, run: npm install node-fetch to add the dependency
 
 const defaultApiResponseMessage = new APIResponseMessage(
   APIResponseConstants.INTERNAL_SERVER_ERROR_MESSAGE,
@@ -36,7 +33,8 @@ export class UserBodyImageController {
     commonHeaders,
     createUserBodyImageValidation,
     fetchUserImageURLValidation,
-    userRepository
+    userRepository,
+    prisma
   ) {
     this.createUserBodyImageUseCase = createUserBodyImageUseCase;
     this.fetchUserBodyImageUseCase = fetchUserBodyImageUseCase;
@@ -48,6 +46,7 @@ export class UserBodyImageController {
     this.createUserBodyImageValidation = createUserBodyImageValidation;
     this.fetchUserImageURLValidation = fetchUserImageURLValidation;
     this.userRepository = userRepository;
+    this.prisma = prisma;
   }
 
   async createUserBodyImage(req, res) {
@@ -87,9 +86,25 @@ export class UserBodyImageController {
     let recommendedSize, recommendedColors, recommendedShirts;
     try {
 
-      console.log("Before recommendation call");
+      console.log("Before API Call");
 
-      const recommendations = await getRecommendations(req.body.bodyImage);
+      // const recResponse = await fetch("http://127.0.0.1:5000/recommend", {
+      const recResponse = await fetch("http://arfitt.com:5000/recommend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: req.body.bodyImage }),
+      });
+      const recData = await recResponse.json();
+
+console.log("Recommendation API status:", recResponse.status);
+console.log("Recommendation API response:", recData);
+
+	    if (!recResponse.ok || !recData.recommendations) {
+    throw new Error(
+        `Recommendation API failed: ${JSON.stringify(recData)}`
+    );
+}
+	    const recommendations = recData.recommendations;
       const lines = recommendations.split("\n").map(line => line.trim());
       for (const line of lines) {
         if (line.startsWith("Size =")) {
@@ -130,7 +145,7 @@ export class UserBodyImageController {
 
 
     try {
-      const result = await prisma.user.findUnique({
+      const result = await this.prisma.user.findUnique({
         where: {
           email: userIdentifier,
         },
@@ -143,7 +158,7 @@ export class UserBodyImageController {
         return [null, null];
       }
 
-      const imageRecord = await prisma.user_body_image.findUnique({
+      const imageRecord = await this.prisma.user_body_image.findUnique({
         where: { user_id: result.id },
       });
       const recommendedSize = imageRecord ? imageRecord.recommended_size : null;
@@ -211,7 +226,7 @@ export class UserBodyImageController {
 
   async getUserByEmail(userEmail) {
       try {
-        const result = await prisma.user.findUnique({
+        const result = await this.prisma.user.findUnique({
           where: {
             email: userEmail,
           },
@@ -219,12 +234,12 @@ export class UserBodyImageController {
 
         console.log("Result");
         console.log(result);
-  
+
         if (!result) {
           return [null, null];
         }
-  
-        const imageRecord = await prisma.user_body_image.findUnique({
+
+        const imageRecord = await this.prisma.user_body_image.findUnique({
           where: { user_id: result.id },
         });
         const recommendedSize = imageRecord ? imageRecord.recommended_size : null;
@@ -421,58 +436,40 @@ export class UserBodyImageController {
     }
   }
 
-  createExpressController() {
-    const router = new express.Router();
+  static registerRoutes(app, buildController) {
+    const router = mountExpressController(app, buildController);
     router.post(
       "/bodyImage",
-      bodyParser.json({ limit: CommonConstants.BODY_PARSER_MAX_LIMIT }),
-      this.commonHeaders.addCommonHeaders.bind(this),
-      this.authServiceMiddleware.verifyToken.bind(
-        this,
-        CommonConstants.ALL_USERS_ACCESS
-      ),
-      this.createUserBodyImageValidation.validate.bind(this),
-      this.createUserBodyImage.bind(this)
+      (c, req, res, next) => c.commonHeaders.addCommonHeaders(req, res, next),
+      (c, req, res, next) => c.authServiceMiddleware.verifyToken(CommonConstants.ALL_USERS_ACCESS, req, res, next),
+      (c, req, res, next) => c.createUserBodyImageValidation.validate(req, res, next),
+      (c, req, res) => c.createUserBodyImage(req, res)
     );
     router.get(
       "/bodyImage/:userID",
-      express.json(),
-      this.commonHeaders.addCommonHeaders.bind(this),
-      this.fetchUserBodyImage.bind(this)
+      (c, req, res, next) => c.commonHeaders.addCommonHeaders(req, res, next),
+      (c, req, res) => c.fetchUserBodyImage(req, res)
     );
     router.put(
       "/bodyImage",
-      bodyParser.json({ limit: CommonConstants.BODY_PARSER_MAX_LIMIT }),
-      this.commonHeaders.addCommonHeaders.bind(this),
-      this.authServiceMiddleware.verifyToken.bind(
-        this,
-        CommonConstants.ALL_USERS_ACCESS
-      ),
-      this.createUserBodyImageValidation.validate.bind(this),
-      this.updateUserBodyImage.bind(this)
+      (c, req, res, next) => c.commonHeaders.addCommonHeaders(req, res, next),
+      (c, req, res, next) => c.authServiceMiddleware.verifyToken(CommonConstants.ALL_USERS_ACCESS, req, res, next),
+      (c, req, res, next) => c.createUserBodyImageValidation.validate(req, res, next),
+      (c, req, res) => c.updateUserBodyImage(req, res)
     );
     router.delete(
       "/bodyImage",
-      express.json(),
-      this.commonHeaders.addCommonHeaders.bind(this),
-      this.authServiceMiddleware.verifyToken.bind(
-        this,
-        CommonConstants.ALL_USERS_ACCESS
-      ),
-      this.fetchUserImageURLValidation.validate.bind(this),
-      this.deleteUserBodyImage.bind(this)
+      (c, req, res, next) => c.commonHeaders.addCommonHeaders(req, res, next),
+      (c, req, res, next) => c.authServiceMiddleware.verifyToken(CommonConstants.ALL_USERS_ACCESS, req, res, next),
+      (c, req, res, next) => c.fetchUserImageURLValidation.validate(req, res, next),
+      (c, req, res) => c.deleteUserBodyImage(req, res)
     );
     router.get(
       "/bodyImage",
-      express.json(),
-      this.commonHeaders.addCommonHeaders.bind(this),
-      this.authServiceMiddleware.verifyToken.bind(
-        this,
-        CommonConstants.ALL_USERS_ACCESS
-      ),
-      this.fetchUserImageURLValidation.validate.bind(this),
-      this.fetchUserBodyImageURL.bind(this)
+      (c, req, res, next) => c.commonHeaders.addCommonHeaders(req, res, next),
+      (c, req, res, next) => c.authServiceMiddleware.verifyToken(CommonConstants.ALL_USERS_ACCESS, req, res, next),
+      (c, req, res, next) => c.fetchUserImageURLValidation.validate(req, res, next),
+      (c, req, res) => c.fetchUserBodyImageURL(req, res)
     );
-    return router;
   }
 }

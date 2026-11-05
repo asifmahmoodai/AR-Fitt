@@ -1,4 +1,4 @@
-import express from "express";
+import { mountExpressController } from "../../hono/expressCompat.js";
 import { APIResponseMessage } from "../../../infra/utils/api_response/APIResponseMessage.js";
 import { APIResponseConstants } from "../../../infra/utils/api_response/APIResponseConstants.js";
 import { CommonConstants } from "../../../infra/utils/common/Constants.js";
@@ -92,44 +92,31 @@ export class UserFaceMatrixController {
     }
   }
 
-  createExpressController() {
-    const router = new express.Router();
+  static registerRoutes(app, buildController) {
+    const router = mountExpressController(app, buildController);
     router.post(
       "/faceMatrix",
-      this.commonHeaders.addCommonHeaders.bind(this),
-      this.authServiceMiddleware.verifyToken.bind(
-        this,
-        CommonConstants.ONLY_REGISTERED_USER_ACCESS
-      ),
-      this.createUserFaceMatrix.bind(this)
+      (c, req, res, next) => c.commonHeaders.addCommonHeaders(req, res, next),
+      (c, req, res, next) => c.authServiceMiddleware.verifyToken(CommonConstants.ONLY_REGISTERED_USER_ACCESS, req, res, next),
+      (c, req, res) => c.createUserFaceMatrix(req, res)
     );
     router.get(
       "/faceMatrix",
-      this.commonHeaders.addCommonHeaders.bind(this),
-      this.authServiceMiddleware.verifyToken.bind(
-        this,
-        CommonConstants.ONLY_REGISTERED_USER_ACCESS
-      ),
-      this.fetchUserFaceMatrix.bind(this)
+      (c, req, res, next) => c.commonHeaders.addCommonHeaders(req, res, next),
+      (c, req, res, next) => c.authServiceMiddleware.verifyToken(CommonConstants.ONLY_REGISTERED_USER_ACCESS, req, res, next),
+      (c, req, res) => c.fetchUserFaceMatrix(req, res)
     );
     router.put(
       "/faceMatrix",
-      this.commonHeaders.addCommonHeaders.bind(this),
-      this.authServiceMiddleware.verifyToken.bind(
-        this,
-        CommonConstants.ONLY_REGISTERED_USER_ACCESS
-      ),
-      this.updateUserFaceMatrix.bind(this)
+      (c, req, res, next) => c.commonHeaders.addCommonHeaders(req, res, next),
+      (c, req, res, next) => c.authServiceMiddleware.verifyToken(CommonConstants.ONLY_REGISTERED_USER_ACCESS, req, res, next),
+      (c, req, res) => c.updateUserFaceMatrix(req, res)
     );
     router.delete(
       "/faceMatrix",
-      this.commonHeaders.addCommonHeaders.bind(this),
-      this.authServiceMiddleware.verifyToken.bind(
-        this,
-        CommonConstants.ONLY_REGISTERED_USER_ACCESS
-      ),
-      this.deleteUserFaceMatrix.bind(this)
+      (c, req, res, next) => c.commonHeaders.addCommonHeaders(req, res, next),
+      (c, req, res, next) => c.authServiceMiddleware.verifyToken(CommonConstants.ONLY_REGISTERED_USER_ACCESS, req, res, next),
+      (c, req, res) => c.deleteUserFaceMatrix(req, res)
     );
-    return router;
   }
 }

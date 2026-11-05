@@ -1,12 +1,13 @@
-import { PrismaClient } from "@prisma/client";
 import { PaymentServiceUser } from "../../../entities/PaymentServiceUser.js";
 
-const prisma = new PrismaClient();
-
 export class PaymentServiceUserRespository {
+  constructor(prisma) {
+    this.prisma = prisma;
+  }
+
   async createPaymentServiceUser(paymentServiceUser) {
     try {
-      await prisma.payment_service_user.create({
+      await this.prisma.payment_service_user.create({
         data: {
           user_id: paymentServiceUser.getUserID(),
           payment_service_user_id: paymentServiceUser.getPaymentServiceUserID(),
@@ -35,7 +36,7 @@ export class PaymentServiceUserRespository {
         return [null, new Error("Invalid userID: userID must be a non-empty string")];
       }
 
-      const result = await prisma.payment_service_user.findUnique({
+      const result = await this.prisma.payment_service_user.findUnique({
         where: {
           user_id: userID,
         },
@@ -69,7 +70,7 @@ export class PaymentServiceUserRespository {
 
   async getPaymentServiceUserByPaymentServiceUserID(userID) {
     try {
-      const result = await prisma.payment_service_user.findFirst({
+      const result = await this.prisma.payment_service_user.findFirst({
         where: {
           payment_service_user_id: userID,
         },

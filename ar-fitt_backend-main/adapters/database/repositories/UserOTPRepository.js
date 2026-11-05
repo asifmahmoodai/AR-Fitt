@@ -1,12 +1,13 @@
-import { PrismaClient } from "@prisma/client";
 import { UserOTP } from "../../../entities/UserOTP.js";
 
-const prisma = new PrismaClient();
-
 export class UserOTPRepository {
+  constructor(prisma) {
+    this.prisma = prisma;
+  }
+
   async createUserOTP(userOTP) {
     try {
-      await prisma.user_otp.create({
+      await this.prisma.user_otp.create({
         data: {
           id: userOTP.getID(),
           user_email: userOTP.getEmail(),
@@ -24,7 +25,7 @@ export class UserOTPRepository {
 
   async getUserOTPByEmail(email) {
     try {
-      const result = await prisma.user_otp.findFirst({
+      const result = await this.prisma.user_otp.findFirst({
         where: {
           user_email: email,
         },

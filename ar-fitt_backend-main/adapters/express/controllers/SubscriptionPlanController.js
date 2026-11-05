@@ -1,4 +1,4 @@
-import express from "express";
+import { mountExpressController } from "../../hono/expressCompat.js";
 import { APIResponseMessage } from "../../../infra/utils/api_response/APIResponseMessage.js";
 import { APIResponseConstants } from "../../../infra/utils/api_response/APIResponseConstants.js";
 import { CommonConstants } from "../../../infra/utils/common/Constants.js";
@@ -32,17 +32,13 @@ export class SubscriptionPlanController {
     }
   }
 
-  createExpressController() {
-    const router = new express.Router();
+  static registerRoutes(app, buildController) {
+    const router = mountExpressController(app, buildController);
     router.get(
       "/subscriptionPlans",
-      this.commonHeaders.addCommonHeaders.bind(this),
-      this.authServiceMiddleware.verifyToken.bind(
-        this,
-        CommonConstants.ONLY_REGISTERED_USER_ACCESS
-      ),
-      this.getSubscriptions.bind(this)
+      (c, req, res, next) => c.commonHeaders.addCommonHeaders(req, res, next),
+      (c, req, res, next) => c.authServiceMiddleware.verifyToken(CommonConstants.ONLY_REGISTERED_USER_ACCESS, req, res, next),
+      (c, req, res) => c.getSubscriptions(req, res)
     );
-    return router;
   }
 }

@@ -1,63 +1,54 @@
-import jsonWebToken from "jsonwebtoken";
+import { SignJWT, jwtVerify } from "jose";
 import { v4 } from "uuid";
-import util from "util";
-import { JWTToken } from "../entities/JWTToken.js";
-import { JWTTokenSecret } from "../entities/JWTTokenSecret.js";
 import { CommonConstants } from "../../../infra/utils/common/Constants.js";
-import { EnvironmentVariables } from "../../../infra/config/environment/EnvironmentVariables.js";
+
+function expirySecondsFor(userType) {
+  switch (userType) {
+    case CommonConstants.GUEST_USER_TYPE:
+      return 86400; // 60 * 60 * 24
+    case CommonConstants.REGISTERED_USER_TYPE:
+      return 3600; // 60 * 60
+    default:
+      return 3600;
+  }
+}
+
+async function signToken(payload, secretString, issuer, audience, subject, notBefore, issuedAt, expiry) {
+  const secret = new TextEncoder().encode(secretString);
+  return new SignJWT(payload)
+    .setProtectedHeader({ alg: CommonConstants.JWT_TOKEN_ALGORITHM, typ: CommonConstants.JWT_TOKEN_TYPE })
+    .setJti(v4())
+    .setIssuer(issuer)
+    .setSubject(subject)
+    .setAudience(audience)
+    .setNotBefore(notBefore)
+    .setIssuedAt(issuedAt)
+    .setExpirationTime(expiry)
+    .sign(secret);
+}
 
 export class AuthService {
-  generateToken(userID, clientType, userType) {
-    const jwtToken = new JWTToken();
-    // setting header
-    jwtToken.setAlgorithm(CommonConstants.JWT_TOKEN_ALGORITHM);
-    jwtToken.setType(CommonConstants.JWT_TOKEN_TYPE);
+  constructor(config) {
+    this.config = config;
+  }
 
-    // setting payload
-    jwtToken.setID(v4());
-    jwtToken.setIssuer(
-      util.format(
-        "%s:%s",
-        EnvironmentVariables.SERVER_HOST_URL,
-        EnvironmentVariables.EXPRESS_APP_PORT
-      )
-    );
-    jwtToken.setSubject(userID);
-    jwtToken.setAudience(EnvironmentVariables.ALLOWED_ORIGIN_URL);
-    jwtToken.setUserType(userType);
+  async generateToken(userID, clientType, userType) {
+    const issuer = this.config.SERVER_HOST_URL;
+    const audience = this.config.ALLOWED_ORIGIN_URL;
+    const now = Math.floor(Date.now() / 1000);
+    const notBefore = now - CommonConstants.NOT_BEFORE_BUFFER_TIME;
 
-    const currentDateTime = new Date().getTime() / 1000;
-
-    let expirtyTimeAddOn;
-    switch (userType) {
-      case CommonConstants.GUEST_USER_TYPE:
-        expirtyTimeAddOn = 86400; // 60 * 60 * 24
-        break;
-      case CommonConstants.REGISTERED_USER_TYPE:
-        expirtyTimeAddOn = 3600; // 60 * 60
-        break;
-      default:
-        // default time incase user type is not defined
-        expirtyTimeAddOn = 3600;
-        break;
-    }
-
-    let expiryDateTime = currentDateTime + expirtyTimeAddOn;
-
-    jwtToken.setNotBefore(
-      currentDateTime - CommonConstants.NOT_BEFORE_BUFFER_TIME
-    );
-    jwtToken.setIssuedAt(currentDateTime);
-    jwtToken.setExpiry(expiryDateTime);
-
-    const jwtTokenSecret = new JWTTokenSecret();
-    var accessToken, refreshToken;
-
+    let accessToken;
     try {
-      accessToken = jsonWebToken.sign(
-        jwtToken.getPayload(),
-        jwtTokenSecret.generateAccessTokenSecret(),
-        jwtToken.getHeader()
+      accessToken = await signToken(
+        { userType },
+        this.config.SIGN_ACCESS_TOKEN_PRIVATE_KEY,
+        issuer,
+        audience,
+        userID,
+        notBefore,
+        now,
+        now + expirySecondsFor(userType)
       );
     } catch (error) {
       console.log("unable to generate token, error: ", error);
@@ -68,14 +59,17 @@ export class AuthService {
       return accessToken;
     }
 
+    let refreshToken;
     try {
-      expiryDateTime = currentDateTime + 24 * 60 * 60 * 30;
-      jwtToken.setExpiry(expiryDateTime);
-
-      refreshToken = jsonWebToken.sign(
-        jwtToken.getPayload(),
-        jwtTokenSecret.generateRefreshTokenSecret(),
-        jwtToken.getHeader()
+      refreshToken = await signToken(
+        { userType },
+        this.config.SIGN_REFRESH_TOKEN_PRIVATE_KEY,
+        issuer,
+        audience,
+        userID,
+        notBefore,
+        now,
+        now + 24 * 60 * 60 * 30
       );
     } catch (error) {
       console.log("unable to generate token, error: ", error);
@@ -85,54 +79,31 @@ export class AuthService {
     return [accessToken, refreshToken];
   }
 
-  verifyAccessToken(token, userTypes) {
-    const verifyOptions = {
-      issuer: util.format(
-        "%s:%s",
-        EnvironmentVariables.SERVER_HOST_URL,
-        EnvironmentVariables.EXPRESS_APP_PORT
-      ),
-      audience: EnvironmentVariables.ALLOWED_ORIGIN_URL,
-    };
-
-    const jwtTokenSecret = new JWTTokenSecret();
+  async verifyAccessToken(token, userTypes) {
+    const secret = new TextEncoder().encode(this.config.SIGN_ACCESS_TOKEN_PRIVATE_KEY);
     try {
-      const refreshTokenPayload = jsonWebToken.verify(
-        token,
-        jwtTokenSecret.generateAccessTokenSecret(),
-        verifyOptions
-      );
-      if (
-        userTypes == null ||
-        (userTypes != null &&
-          !userTypes.includes(refreshTokenPayload["userType"]))
-      ) {
+      const { payload } = await jwtVerify(token, secret, {
+        issuer: this.config.SERVER_HOST_URL,
+        audience: this.config.ALLOWED_ORIGIN_URL,
+      });
+      if (userTypes == null || !userTypes.includes(payload.userType)) {
         return [false, null];
       }
-      return [true, refreshTokenPayload["userType"]];
+      return [true, payload.userType];
     } catch (error) {
       console.log("unable to verify token, error: ", error);
       return [false, null];
     }
   }
 
-  verifyRefreshToken(token) {
-    const verifyOptions = {
-      issuer: util.format(
-        "%s:%s",
-        EnvironmentVariables.SERVER_HOST_URL,
-        EnvironmentVariables.EXPRESS_APP_PORT
-      ),
-      audience: EnvironmentVariables.ALLOWED_ORIGIN_URL,
-    };
-
-    const jwtTokenSecret = new JWTTokenSecret();
+  async verifyRefreshToken(token) {
+    const secret = new TextEncoder().encode(this.config.SIGN_REFRESH_TOKEN_PRIVATE_KEY);
     try {
-      return jsonWebToken.verify(
-        token,
-        jwtTokenSecret.generateRefreshTokenSecret(),
-        verifyOptions
-      );
+      const { payload } = await jwtVerify(token, secret, {
+        issuer: this.config.SERVER_HOST_URL,
+        audience: this.config.ALLOWED_ORIGIN_URL,
+      });
+      return payload;
     } catch (error) {
       console.log("unable to verify token, error: ", error);
       return null;

@@ -1,12 +1,13 @@
-import { PrismaClient } from "@prisma/client";
 import { User } from "../../../entities/User.js";
 
-const prisma = new PrismaClient();
-
 export class UserRepository {
+  constructor(prisma) {
+    this.prisma = prisma;
+  }
+
   async createUser(user) {
     try {
-      await prisma.user.create({
+      await this.prisma.user.create({
         data: {
           id: user.getID(),
           email: user.getEmail(),
@@ -33,7 +34,7 @@ export class UserRepository {
 
   async getUserByEmail(userEmail) {
     try {
-      const result = await prisma.user.findUnique({
+      const result = await this.prisma.user.findUnique({
         where: {
           email: userEmail,
         },
@@ -43,7 +44,7 @@ export class UserRepository {
         return [null, null];
       }
 
-      const imageRecord = await prisma.user_body_image.findUnique({
+      const imageRecord = await this.prisma.user_body_image.findUnique({
         where: { user_id: result.id },
       });
       const recommendedSize = imageRecord ? imageRecord.recommended_size : null;
@@ -75,7 +76,7 @@ export class UserRepository {
 
   async markUserVerified(userEmail) {
     try {
-      await prisma.user.update({
+      await this.prisma.user.update({
         where: {
           email: userEmail,
         },
@@ -95,7 +96,7 @@ export class UserRepository {
 
   async markeUserSubscribed(userEmail) {
     try {
-      await prisma.user.update({
+      await this.prisma.user.update({
         where: {
           email: userEmail,
         },
@@ -115,7 +116,7 @@ export class UserRepository {
 
   async markUserUnsubscribedByID(userID) {
     try {
-      await prisma.user.update({
+      await this.prisma.user.update({
         where: {
           id: userID,
         },
@@ -135,7 +136,7 @@ export class UserRepository {
 
   async markUserUnsubscribedByEmail(userEmail) {
     try {
-      await prisma.user.update({
+      await this.prisma.user.update({
         where: {
           email: userEmail,
         },
@@ -173,7 +174,7 @@ export class UserRepository {
     payload["modified_at"] = updatedUser.getModifiedAt();
 
     try {
-      await prisma.user.update({
+      await this.prisma.user.update({
         where: {
           email: updatedUser.getEmail(),
         },
@@ -188,7 +189,7 @@ export class UserRepository {
 
   async markUserBodyScannedByEmail(userEmail) {
     try {
-      await prisma.user.update({
+      await this.prisma.user.update({
         where: {
           email: userEmail,
         },
@@ -208,7 +209,7 @@ export class UserRepository {
 
   async markUserBodyUnScannedByEmail(userEmail) {
     try {
-      await prisma.user.update({
+      await this.prisma.user.update({
         where: {
           email: userEmail,
         },
@@ -228,7 +229,7 @@ export class UserRepository {
 
   async markUserFaceScannedByEmail(userEmail) {
     try {
-      await prisma.user.update({
+      await this.prisma.user.update({
         where: {
           email: userEmail,
         },
@@ -248,7 +249,7 @@ export class UserRepository {
 
   async markUserFaceUnScannedByEmail(userEmail) {
     try {
-      await prisma.user.update({
+      await this.prisma.user.update({
         where: {
           email: userEmail,
         },
@@ -268,7 +269,7 @@ export class UserRepository {
 
   async getUserByID(userID) {
     try {
-      const result = await prisma.user.findUnique({
+      const result = await this.prisma.user.findUnique({
         where: {
           id: userID,
         },
@@ -304,7 +305,7 @@ export class UserRepository {
 
   async markUserBodyScannedByID(userID) {
     try {
-      await prisma.user.update({
+      await this.prisma.user.update({
         where: {
           id: userID,
         },
@@ -324,7 +325,7 @@ export class UserRepository {
 
   async markUserBodyUnScannedByID(userID) {
     try {
-      await prisma.user.update({
+      await this.prisma.user.update({
         where: {
           id: userID,
         },
@@ -344,7 +345,7 @@ export class UserRepository {
 
   async markUserFaceScannedByID(userID) {
     try {
-      await prisma.user.update({
+      await this.prisma.user.update({
         where: {
           id: userID,
         },
@@ -364,7 +365,7 @@ export class UserRepository {
 
   async markUserFaceUnScannedByID(userID) {
     try {
-      await prisma.user.update({
+      await this.prisma.user.update({
         where: {
           id: userID,
         },

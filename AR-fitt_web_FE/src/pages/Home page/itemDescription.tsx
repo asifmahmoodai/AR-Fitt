@@ -11,6 +11,7 @@ import { addToCart } from "../../redux/cart/cartActions";
 import FacebookIcon from "@mui/icons-material/Facebook";
 import TwitterIcon from "@mui/icons-material/Twitter";
 import WhatsAppIcon from "@mui/icons-material/WhatsApp";
+import { getProductImageUrl } from "../../utils/productImage";
 
 const ItemDescription = () => {
   const dispatch = useDispatch();
@@ -93,7 +94,7 @@ const ItemDescription = () => {
     const fetchImages = async () => {
       if (selectedItem && selectedItem?.itemImagesURLs?.length > 0) {
         const imageUrls = selectedItem?.itemImagesURLs?.map(
-          (item: any) => `${process.env.REACT_APP_NODE_BACKEND_BASE_URL}/product_images/${item.imageURL}`
+          (item: any) => getProductImageUrl(item.imageURL) || "/assets/images/placeHolderImage.jpeg"
         );
         // const validatedImages = await validateImages(imageUrls);
         const validatedImages = await validateImages(imageUrls);

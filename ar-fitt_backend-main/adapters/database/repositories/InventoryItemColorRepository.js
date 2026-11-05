@@ -1,12 +1,13 @@
-import { PrismaClient } from "@prisma/client";
 import { InventoryItemColor } from "../../../entities/InventoryItemColor.js";
 
-const prisma = new PrismaClient();
-
 export class InventoryItemColorRepository {
+  constructor(prisma) {
+    this.prisma = prisma;
+  }
+
   async getInventoryItemAllColors(itemID) {
     try {
-      const result = await prisma.inventory_item_color.findMany({
+      const result = await this.prisma.inventory_item_color.findMany({
         where: {
           item_id: itemID,
         },

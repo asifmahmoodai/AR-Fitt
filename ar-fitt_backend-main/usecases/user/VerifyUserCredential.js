@@ -1,8 +1,8 @@
-import crypto from "crypto";
 import { APIResponse } from "../../infra/utils/api_response/APIResponse.js";
 import { APIResponseMessage } from "../../infra/utils/api_response/APIResponseMessage.js";
 import { APIResponseConstants } from "../../infra/utils/api_response/APIResponseConstants.js";
 import { User } from "../../entities/User.js";
+import { verifyPassword } from "../../middleware/crypto/passwordHashing.js";
 
 export class VerifyUserCredentialUseCase {
   constructor(userRepository, userCredentialRepository) {
@@ -37,9 +37,7 @@ export class VerifyUserCredentialUseCase {
     }
 
     if (
-      !existingUserCredential.validatePassword(
-        crypto.createHash("sha1").update(password).digest("hex")
-      )
+      !(await verifyPassword(password, existingUserCredential.getPasswordHash()))
     ) {
       return new APIResponse(
         new APIResponseMessage(

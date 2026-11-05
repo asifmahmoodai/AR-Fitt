@@ -1,12 +1,13 @@
-import { PrismaClient } from "@prisma/client";
 import { InventoryItemSize } from "../../../entities/InventoryItemSize.js";
 
-const prisma = new PrismaClient();
-
 export class InventoryItemSizeRepository {
+  constructor(prisma) {
+    this.prisma = prisma;
+  }
+
   async getInventoryItemAllSizes(itemID) {
     try {
-      const result = await prisma.inventory_item_size.findMany({
+      const result = await this.prisma.inventory_item_size.findMany({
         where: {
           item_id: itemID,
         },

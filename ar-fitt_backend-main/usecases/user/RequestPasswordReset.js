@@ -1,15 +1,15 @@
 import util from "util";
-import { EnvironmentVariables } from "../../infra/config/environment/EnvironmentVariables.js";
 import { CommonConstants } from "../../infra/utils/common/Constants.js";
 import { APIResponse } from "../../infra/utils/api_response/APIResponse.js";
 import { APIResponseMessage } from "../../infra/utils/api_response/APIResponseMessage.js";
 import { APIResponseConstants } from "../../infra/utils/api_response/APIResponseConstants.js";
 
 export class RequestPasswordResetUseCase {
-  constructor(emailServiceAdapter, userRepository, authService) {
+  constructor(emailServiceAdapter, userRepository, authService, config) {
     this.emailServiceAdapter = emailServiceAdapter;
     this.userRepository = userRepository;
     this.authService = authService;
+    this.config = config;
   }
 
   async execute(email) {
@@ -37,7 +37,7 @@ export class RequestPasswordResetUseCase {
       );
     }
 
-    const token = this.authService.generateToken(
+    const token = await this.authService.generateToken(
       existingUser.getID(),
       CommonConstants.CLIENT_TYPE_WEB,
       CommonConstants.REGISTERED_USER_TYPE
@@ -57,7 +57,7 @@ export class RequestPasswordResetUseCase {
       CommonConstants.RESET_PASSWORD_EMAIL_SUBJECT,
       util.format(
         CommonConstants.RESET_PASSWORD_EMAIL_MESSAGE,
-        util.format(EnvironmentVariables.FORGET_PASSWORD_URL, token)
+        util.format(this.config.FORGET_PASSWORD_URL, token)
       )
     );
     if (adapterError != null) {

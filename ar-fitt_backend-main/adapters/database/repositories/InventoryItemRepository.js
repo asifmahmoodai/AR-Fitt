@@ -1,33 +1,22 @@
-import { PrismaClient } from "@prisma/client";
 import { InventoryItem } from "../../../entities/InventoryItem.js";
 import { UserBodyImage } from "../../../entities/UserBodyImage.js";
 
 
-const prisma = new PrismaClient();
-
 export class InventoryItemRepository {
+  constructor(prisma) {
+    this.prisma = prisma;
+  }
+
 
   async getUserGenderByID(userID) {
     try {
-      // First try to get from user table
-      const user = await prisma.user.findUnique({
+      // Guest users are also rows in the `user` table (see RegisterGuestUser),
+      // so a single lookup covers both registered and guest users.
+      const user = await this.prisma.user.findUnique({
         where: { id: userID },
         select: { gender: true }
       });
-      if (user) {
-        return [user.gender, null];
-      }
-      
-      // If not found, try guest_user table
-      const guestUser = await prisma.guest_user.findUnique({
-        where: { id: userID },
-        select: { gender: true }
-      });
-      if (guestUser) {
-        return [guestUser.gender, null];
-      }
-      
-      return [null, null];
+      return [user ? user.gender : null, null];
     } catch (error) {
       console.log("failed to get user gender from db, error: ", error);
       return [null, error];
@@ -37,7 +26,7 @@ export class InventoryItemRepository {
   async getUserBodyImageByUserID(userID) {
     console.log("ReportItem", userID);
       try {
-        const result = await prisma.user_body_image.findUnique({
+        const result = await this.prisma.user_body_image.findUnique({
           where: {
             user_id: userID,
           },
@@ -77,7 +66,7 @@ export class InventoryItemRepository {
         ];
       }
       
-      const result = await prisma.inventory_item.findMany({
+      const result = await this.prisma.inventory_item.findMany({
         where: whereClause,
       });
       
@@ -113,7 +102,7 @@ export class InventoryItemRepository {
 
   async getInventoryItem(itemID) {
     try {
-      const result = await prisma.inventory_item.findUnique({
+      const result = await this.prisma.inventory_item.findUnique({
         where: {
           id: itemID,
         },
@@ -149,7 +138,7 @@ export class InventoryItemRepository {
   async getAllDemoInventoryItems(categoryID) {
     try {
       const result =
-        await prisma.$queryRaw`select ii.id, ii.category_id, ii."name", ii.brand, ii.price, ii.currency, ii.description, ii.lens_id, ii.gender, ii.created_at, 
+        await this.prisma.$queryRaw`select ii.id, ii.category_id, ii."name", ii.brand, ii.price, ii.currency, ii.description, ii.lens_id, ii.gender, ii.created_at, 
 	    ii.modified_at from inventory_item ii 
 	    inner join inventory_demo_item idi on idi.item_id = ii.id where idi.is_demo_item = true and ii.category_id = ${categoryID};`;
       if (!result) {

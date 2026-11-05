@@ -26,9 +26,10 @@ export class ProcessWebhookEventsUseCase {
 
     if (
       repoReturnedValues[2] != null ||
-      (!repoReturnedValues[0] && repoReturnedValues[1])
+      !repoReturnedValues[0] ||
+      !repoReturnedValues[1]
     ) {
-      new APIResponse(null, APIResponseConstants.BAD_REQUEST);
+      return new APIResponse(null, APIResponseConstants.BAD_REQUEST);
     }
 
     const eventData = repoReturnedValues[0];

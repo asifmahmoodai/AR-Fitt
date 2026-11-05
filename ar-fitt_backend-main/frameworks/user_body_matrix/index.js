@@ -8,33 +8,37 @@ import { DeleteUserBodyMatrixUseCase } from "../../usecases/user/body_matrix/Del
 import { AuthServiceMiddleware } from "../../middleware/authorization_service/usecases/AuthServiceMiddleware.js";
 import { Headers } from "../../middleware/common/headers.js";
 
-const userRepository = new UserRepository();
-const userBodyMatrixRepository = new UserBodyMatrixRepository();
-const authServiceMiddleware = new AuthServiceMiddleware();
-const commonHeaders = new Headers();
+// Rebuilt once per request (see adapters/hono/expressCompat.js) since the Prisma
+// client itself must be constructed per request on Workers.
+export function buildUserBodyMatrixController(appContext) {
+  const userRepository = new UserRepository(appContext.prisma);
+  const userBodyMatrixRepository = new UserBodyMatrixRepository(appContext.prisma);
+  const authServiceMiddleware = new AuthServiceMiddleware(appContext.config);
+  const commonHeaders = new Headers();
 
-const createUserBodyMatrixUseCase = new CreateUserBodyMatrixUseCase(
-  userRepository,
-  userBodyMatrixRepository
-);
-const fetchUserBodyMatrixUseCase = new FetchUserBodyMatrixUseCase(
-  userRepository,
-  userBodyMatrixRepository
-);
-const updateUserBodyMatrixUseCase = new UpdateUserBodyMatrixUseCase(
-  userRepository,
-  userBodyMatrixRepository
-);
-const deleteUserBodyMatrixUseCase = new DeleteUserBodyMatrixUseCase(
-  userRepository,
-  userBodyMatrixRepository
-);
+  const createUserBodyMatrixUseCase = new CreateUserBodyMatrixUseCase(
+    userRepository,
+    userBodyMatrixRepository
+  );
+  const fetchUserBodyMatrixUseCase = new FetchUserBodyMatrixUseCase(
+    userRepository,
+    userBodyMatrixRepository
+  );
+  const updateUserBodyMatrixUseCase = new UpdateUserBodyMatrixUseCase(
+    userRepository,
+    userBodyMatrixRepository
+  );
+  const deleteUserBodyMatrixUseCase = new DeleteUserBodyMatrixUseCase(
+    userRepository,
+    userBodyMatrixRepository
+  );
 
-export const userBodyMatrixController = new UserBodyMatrixController(
-  createUserBodyMatrixUseCase,
-  fetchUserBodyMatrixUseCase,
-  updateUserBodyMatrixUseCase,
-  deleteUserBodyMatrixUseCase,
-  authServiceMiddleware,
-  commonHeaders
-);
+  return new UserBodyMatrixController(
+    createUserBodyMatrixUseCase,
+    fetchUserBodyMatrixUseCase,
+    updateUserBodyMatrixUseCase,
+    deleteUserBodyMatrixUseCase,
+    authServiceMiddleware,
+    commonHeaders
+  );
+}

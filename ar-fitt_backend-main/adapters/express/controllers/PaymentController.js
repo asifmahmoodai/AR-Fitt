@@ -1,4 +1,4 @@
-import express from "express";
+import { mountExpressController } from "../../hono/expressCompat.js";
 import { APIResponseMessage } from "../../../infra/utils/api_response/APIResponseMessage.js";
 import { APIResponseConstants } from "../../../infra/utils/api_response/APIResponseConstants.js";
 import { CommonConstants } from "../../../infra/utils/common/Constants.js";
@@ -30,16 +30,12 @@ export class PaymentController {
   }
 
   async createSubscription(req, res) {
-
-    console.log("req.body", req.body);
     const { userEmail, priceID } = req.body;
     const useCaseResponse = await this.createSubscriptionUseCase.execute(
       userEmail,
       priceID
     );
 
-    console.log("useCaseResponse", useCaseResponse);
-    
     if (useCaseResponse == null) {
       res
         .status(APIResponseConstants.INTERNAL_SERVER_ERROR_STATUS_CODE)
@@ -52,8 +48,12 @@ export class PaymentController {
   }
 
   async processWebhookEvents(req, res) {
+    // The Stripe webhook route is registered with { skipBodyParse: true } (see
+    // registerRoutes below) so the request body is never JSON-parsed by the shim
+    // -- signature verification needs the exact raw bytes Stripe signed.
+    const rawBody = await req.raw.text();
     const useCaseResponse = await this.processWebhookEventsUseCase.execute(
-      req.body,
+      rawBody,
       req.headers[CommonConstants.STRIPE_SIGNATURE]
     );
     if (useCaseResponse == null) {
@@ -96,46 +96,33 @@ export class PaymentController {
     }
   }
 
-  createExpressController() {
-    const router = new express.Router();
+  static registerRoutes(app, buildController) {
+    const router = mountExpressController(app, buildController);
     router.post(
       "/payment/createSubscription",
-      express.json(),
-      this.commonHeaders.addCommonHeaders.bind(this),
-      // this.authServiceMiddleware.verifyToken.bind(
-      //   this,
-      //   CommonConstants.ONLY_REGISTERED_USER_ACCESS
-      // ),
-      // this.subscriptionValidation.validate.bind(this),
-      this.createSubscription.bind(this)
+      (c, req, res, next) => c.commonHeaders.addCommonHeaders(req, res, next),
+      // (c, req, res, next) => c.authServiceMiddleware.verifyToken(CommonConstants.ONLY_REGISTERED_USER_ACCESS, req, res, next),
+      (c, req, res, next) => c.subscriptionValidation.validate(req, res, next),
+      (c, req, res) => c.createSubscription(req, res)
     );
     router.post(
       "/payment/webhook",
-      express.raw({ type: "application/json" }),
-      this.processWebhookEvents.bind(this)
+      { skipBodyParse: true },
+      (c, req, res) => c.processWebhookEvents(req, res)
     );
     router.post(
       "/payment/updateSubscription",
-      express.json(),
-      this.commonHeaders.addCommonHeaders.bind(this),
-      this.authServiceMiddleware.verifyToken.bind(
-        this,
-        CommonConstants.ONLY_REGISTERED_USER_ACCESS
-      ),
-      this.subscriptionValidation.validate.bind(this),
-      this.updateSubscription.bind(this)
+      (c, req, res, next) => c.commonHeaders.addCommonHeaders(req, res, next),
+      (c, req, res, next) => c.authServiceMiddleware.verifyToken(CommonConstants.ONLY_REGISTERED_USER_ACCESS, req, res, next),
+      (c, req, res, next) => c.subscriptionValidation.validate(req, res, next),
+      (c, req, res) => c.updateSubscription(req, res)
     );
     router.get(
       "/payment/cancelSubscription",
-      express.json(),
-      this.commonHeaders.addCommonHeaders.bind(this),
-      this.authServiceMiddleware.verifyToken.bind(
-        this,
-        CommonConstants.ONLY_REGISTERED_USER_ACCESS
-      ),
-      this.emailValidation.validate.bind(this),
-      this.cancelSubscription.bind(this)
+      (c, req, res, next) => c.commonHeaders.addCommonHeaders(req, res, next),
+      (c, req, res, next) => c.authServiceMiddleware.verifyToken(CommonConstants.ONLY_REGISTERED_USER_ACCESS, req, res, next),
+      (c, req, res, next) => c.emailValidation.validate(req, res, next),
+      (c, req, res) => c.cancelSubscription(req, res)
     );
-    return router;
   }
 }

@@ -41,6 +41,7 @@ import { useAdmin } from '../../context/adminContext';
 import { adminService, AdminProduct, CreateProductData } from '../../services/admin.service';
 import { AdminEmptyState, AdminFilters, AdminPageHeader, AdminSelect, AdminStats } from './AdminUI';
 import { defaultProductFilters, filterProducts, ProductFilters } from '../../utils/adminFilters';
+import { getProductImageUrl } from '../../utils/productImage';
 
 const ProductManagement: React.FC = () => {
   const { state, dispatch } = useAdmin();
@@ -78,8 +79,8 @@ const ProductManagement: React.FC = () => {
   const currencies = Array.from(new Set(state.products.map((product) => product.currency?.trim()).filter(Boolean))).sort();
   const invalidPrice = (filters.minPrice !== '' && Number(filters.minPrice) < 0) || (filters.maxPrice !== '' && Number(filters.maxPrice) < 0)
     || (filters.minPrice !== '' && filters.maxPrice !== '' && Number(filters.minPrice) > Number(filters.maxPrice));
-  const productImage = (product: AdminProduct) => product.imageUrls?.[0]?.image_url
-    ? `${process.env.REACT_APP_NODE_BACKEND_BASE_URL || ''}/product_images/${product.imageUrls[0].image_url}` : '/assets/images/placeHolderImage.jpeg';
+  const productImage = (product: AdminProduct) =>
+    getProductImageUrl(product.imageUrls?.[0]?.image_url) || '/assets/images/placeHolderImage.jpeg';
   useEffect(() => { setPage(0); }, [filters]);
   
   // Dynamic form state for colors and sizes
@@ -291,10 +292,18 @@ const ProductManagement: React.FC = () => {
       
       if (editingProduct) {
         // Upload image for existing product
-        await adminService.uploadProductImage(editingProduct.id, selectedImage);
+        const uploadedImage = await adminService.uploadProductImage(editingProduct.id, selectedImage);
+        const uploadedImageUrl = uploadedImage?.image_url;
+        if (uploadedImageUrl) {
+          setFormData((current) => ({ ...current, imageUrls: [uploadedImageUrl] }));
+          setEditingProduct((current) => current ? {
+            ...current,
+            imageUrls: [{ id: uploadedImage.id, image_url: uploadedImageUrl }],
+          } : current);
+        }
         setAlert({ type: 'success', message: 'Image uploaded successfully' });
         // Refresh products to get updated data
-        fetchProducts();
+        await fetchProducts();
       } else {
         // For new products, we'll store the image temporarily and upload it after product creation
         setAlert({ type: 'success', message: 'Image selected. It will be uploaded when you create the product.' });
@@ -314,9 +323,11 @@ const ProductManagement: React.FC = () => {
     
     try {
       await adminService.deleteProductImage(editingProduct.id);
+      setFormData((current) => ({ ...current, imageUrls: [] }));
+      setEditingProduct((current) => current ? { ...current, imageUrls: [] } : current);
       setAlert({ type: 'success', message: 'Image deleted successfully' });
       // Refresh products to get updated data
-      fetchProducts();
+      await fetchProducts();
     } catch (error) {
       setAlert({ type: 'error', message: 'Failed to delete image' });
     }
@@ -761,7 +772,7 @@ const ProductManagement: React.FC = () => {
                        }}
                      >
                        <img
-                         src={`${process.env.REACT_APP_NODE_BACKEND_BASE_URL || ''}/product_images/${editingProduct?.imageUrls?.[0]?.image_url}`}
+                         src={getProductImageUrl(editingProduct?.imageUrls?.[0]?.image_url) || '/assets/images/placeHolderImage.jpeg'}
                          alt={editingProduct?.name || 'Product'}
                          style={{
                            maxWidth: '200px',

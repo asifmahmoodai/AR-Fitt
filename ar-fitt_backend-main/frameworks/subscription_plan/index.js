@@ -4,15 +4,20 @@ import { FetchSubscriptionPlanUseCase } from "../../usecases/subscription_plan/F
 import { AuthServiceMiddleware } from "../../middleware/authorization_service/usecases/AuthServiceMiddleware.js";
 import { Headers } from "../../middleware/common/headers.js";
 
-const paymentServiceAdapter = new PaymentServiceAdapter();
-const authServiceMiddleware = new AuthServiceMiddleware();
-const commonHeaders = new Headers();
+// Rebuilt once per request (see adapters/hono/expressCompat.js) since the Prisma
+// client itself must be constructed per request on Workers.
+export function buildSubscriptionPlanController(appContext) {
+  const paymentServiceAdapter = new PaymentServiceAdapter(appContext.config);
+  const authServiceMiddleware = new AuthServiceMiddleware(appContext.config);
+  const commonHeaders = new Headers();
 
-const fetchSubscriptionPlanUseCase = new FetchSubscriptionPlanUseCase(
-  paymentServiceAdapter
-);
-export const subscriptionPlanController = new SubscriptionPlanController(
-  fetchSubscriptionPlanUseCase,
-  authServiceMiddleware,
-  commonHeaders
-);
+  const fetchSubscriptionPlanUseCase = new FetchSubscriptionPlanUseCase(
+    paymentServiceAdapter
+  );
+
+  return new SubscriptionPlanController(
+    fetchSubscriptionPlanUseCase,
+    authServiceMiddleware,
+    commonHeaders
+  );
+}

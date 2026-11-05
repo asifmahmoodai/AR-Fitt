@@ -1,11 +1,12 @@
 import util from "util";
-import { PrismaClient } from "@prisma/client";
 import { UserBodyImage } from "../../../entities/UserBodyImage.js";
 import { UserBodyImageURL } from "../../../entities/UserBodyImageURL.js";
 
-const prisma = new PrismaClient();
-
 export class UserBodyImageRepository {
+  constructor(prisma) {
+    this.prisma = prisma;
+  }
+
   async createUserBodyImage(userBodyImage) {
     console.log("userBodyImage", userBodyImage);
     try {
@@ -13,7 +14,7 @@ export class UserBodyImageRepository {
       console.log("CreateUserBodyRepo.js");
       console.log("Get Size", userBodyImage.getRecommendedSize());
 
-      await prisma.user_body_image.create({
+      await this.prisma.user_body_image.create({
         data: {
           user_id: userBodyImage.getUserID(),
           body_image: userBodyImage.getBodyImage(),
@@ -33,7 +34,7 @@ export class UserBodyImageRepository {
 
   async updateUserBodyImage(userBodyImage) {
     try {
-      await prisma.user_body_image.update({
+      await this.prisma.user_body_image.update({
         where: { user_id: userBodyImage.getUserID() },
         data: {
           body_image: userBodyImage.getBodyImage(),
@@ -49,7 +50,7 @@ export class UserBodyImageRepository {
 
   async deleteUserBodyImage(userID) {
     try {
-      await prisma.user_body_image.delete({
+      await this.prisma.user_body_image.delete({
         where: { user_id: userID },
       });
       return null;
@@ -61,7 +62,7 @@ export class UserBodyImageRepository {
 
   async getUserBodyImageByUserID(userID) {
     try {
-      const result = await prisma.user_body_image.findUnique({
+      const result = await this.prisma.user_body_image.findUnique({
         where: {
           user_id: userID,
         },
@@ -87,7 +88,7 @@ export class UserBodyImageRepository {
 
   async getUserBodyImageURLByUserID(userID) {
     try {
-      const result = await prisma.user_body_image.findUnique({
+      const result = await this.prisma.user_body_image.findUnique({
         where: {
           user_id: userID,
         },

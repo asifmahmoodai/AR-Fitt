@@ -1,29 +1,22 @@
-import { PrismaClient } from "@prisma/client";
 import { InventoryCategory } from "../../../entities/InventoryCategory.js";
 
-const prisma = new PrismaClient();
-
 export class InventoryCategoryRepository {
-  
+  constructor(prisma) {
+    this.prisma = prisma;
+  }
+
+
   async getUserGender(userId) {
     try {
       if (!userId) return null;
-      
-      // First try user table
-      const user = await prisma.user.findUnique({
+
+      // Guest users are also rows in the `user` table (see RegisterGuestUser),
+      // so a single lookup covers both registered and guest users.
+      const user = await this.prisma.user.findUnique({
         where: { id: userId },
         select: { gender: true }
       });
-      if (user?.gender) return user.gender.toLowerCase();
-      
-      // Then try guest_user table
-      const guestUser = await prisma.guest_user.findUnique({
-        where: { id: userId },
-        select: { gender: true }
-      });
-      if (guestUser?.gender) return guestUser.gender.toLowerCase();
-      
-      return null;
+      return user?.gender ? user.gender.toLowerCase() : null;
     } catch (error) {
       console.log("failed to get user gender:", error);
       return null;
@@ -42,7 +35,7 @@ export class InventoryCategoryRepository {
       
       if (userGender) {
         // Filter: show products where gender is null/empty OR matches user gender
-        result = await prisma.$queryRaw`
+        result = await this.prisma.$queryRaw`
           SELECT 
             ic.id, 
             ic.name, 
@@ -64,7 +57,7 @@ export class InventoryCategoryRepository {
         `;
       } else {
         // No gender filter, just check for products
-        result = await prisma.$queryRaw`
+        result = await this.prisma.$queryRaw`
           SELECT 
             ic.id, 
             ic.name, 
@@ -111,7 +104,7 @@ export class InventoryCategoryRepository {
 
   async getInventoryCategory(categoryID) {
     try {
-      const result = await prisma.inventory_category.findUnique({
+      const result = await this.prisma.inventory_category.findUnique({
         where: {
           id: categoryID,
         },
@@ -140,7 +133,7 @@ export class InventoryCategoryRepository {
     try {
       // Only return demo categories that have at least 1 product
       const result =
-        await prisma.$queryRaw`select ic.id, ic."name", ic.description, ic."type", ic.created_at, ic.modified_at 
+        await this.prisma.$queryRaw`select ic.id, ic."name", ic.description, ic."type", ic.created_at, ic.modified_at 
       from inventory_category ic 
       inner join inventory_demo_category idc on ic.id = idc.category_id 
       where idc.is_demo_item = true and ic."type" = ${type}

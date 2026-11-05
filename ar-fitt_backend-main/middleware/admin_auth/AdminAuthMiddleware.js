@@ -1,57 +1,61 @@
-import { getAdminAuthService } from "./AdminAuthService.js";
+import { AdminAuthService } from "./AdminAuthService.js";
 import { CommonConstants } from "../../infra/utils/common/Constants.js";
-import { PrismaClient } from "@prisma/client";
 
-const prisma = new PrismaClient();
+// Mirrors the previous in-memory eviction window ("Remove sessions inactive for
+// more than 2 hours"). KV's native expirationTtl now enforces this directly:
+// every verifyAdminToken call refreshes the TTL, so a session that goes 2 hours
+// without activity simply falls out of KV on its own.
+const ADMIN_SESSION_TTL_SECONDS = 2 * 60 * 60;
 
 export class AdminAuthMiddleware {
-  constructor() {
-    this.adminAuthService = getAdminAuthService();
-    this.adminSessions = new Map(); // In-memory admin session store
+  constructor(config, adminSessionsKV, prisma) {
+    this.adminAuthService = new AdminAuthService(config);
+    this.adminSessionsKV = adminSessionsKV;
+    this.prisma = prisma;
   }
 
   // Middleware to verify admin token
   async verifyAdminToken(req, res, next) {
     try {
       // Get token from admin-specific header
-      const adminToken = req.headers['x-admin-auth-token'] || req.headers['admin-authorization'];
-      
+      const adminToken = req.headers["x-admin-auth-token"] || req.headers["admin-authorization"];
+
       if (!adminToken) {
         return res.status(401).json({
           status: CommonConstants.FAILURE_STATUS,
           message: "Admin authentication required",
-          isAdminAuth: true
+          isAdminAuth: true,
         });
       }
 
       // Remove 'Bearer ' prefix if present
-      const token = adminToken.replace('Bearer ', '');
-      
+      const token = adminToken.replace("Bearer ", "");
+
       // Verify admin token
-      const verification = this.adminAuthService.verifyAdminAccessToken(token);
-      
+      const verification = await this.adminAuthService.verifyAdminAccessToken(token);
+
       if (!verification.valid) {
         return res.status(401).json({
           status: CommonConstants.FAILURE_STATUS,
           message: "Invalid or expired admin token",
           error: verification.error,
-          isAdminAuth: true
+          isAdminAuth: true,
         });
       }
 
       // Fetch admin user from database
-      const adminUser = await prisma.user.findFirst({
+      const adminUser = await this.prisma.user.findFirst({
         where: {
           id: verification.adminId,
-          role: "admin"
-        }
+          role: "admin",
+        },
       });
 
       if (!adminUser) {
         return res.status(403).json({
           status: CommonConstants.FAILURE_STATUS,
           message: "Admin account not found or insufficient privileges",
-          isAdminAuth: true
+          isAdminAuth: true,
         });
       }
 
@@ -62,32 +66,28 @@ export class AdminAuthMiddleware {
         firstName: adminUser.first_name,
         lastName: adminUser.last_name,
         role: adminUser.role,
-        tokenId: verification.tokenId
+        tokenId: verification.tokenId,
       };
 
       // Check if this admin session is active
       const sessionKey = `${adminUser.id}_${verification.tokenId}`;
-      if (!this.adminSessions.has(sessionKey)) {
-        // Create new session
-        this.adminSessions.set(sessionKey, {
-          adminId: adminUser.id,
-          loginTime: new Date(),
-          lastActivity: new Date()
-        });
-      } else {
-        // Update last activity
-        const session = this.adminSessions.get(sessionKey);
-        session.lastActivity = new Date();
-        this.adminSessions.set(sessionKey, session);
-      }
+      const existingRaw = await this.adminSessionsKV.get(sessionKey);
+      const nowIso = new Date().toISOString();
+      const session = existingRaw
+        ? { ...JSON.parse(existingRaw), lastActivity: nowIso }
+        : { adminId: adminUser.id, loginTime: nowIso, lastActivity: nowIso };
 
-      next();
+      await this.adminSessionsKV.put(sessionKey, JSON.stringify(session), {
+        expirationTtl: ADMIN_SESSION_TTL_SECONDS,
+      });
+
+      return next();
     } catch (error) {
       console.error("Admin authentication error:", error);
       return res.status(500).json({
         status: CommonConstants.FAILURE_STATUS,
         message: "Admin authentication failed",
-        isAdminAuth: true
+        isAdminAuth: true,
       });
     }
   }
@@ -95,73 +95,76 @@ export class AdminAuthMiddleware {
   // Middleware to refresh admin token
   async refreshAdminToken(req, res, next) {
     try {
-      const refreshToken = req.headers['x-admin-refresh-token'];
-      
+      const refreshToken = req.headers["x-admin-refresh-token"];
+
       if (!refreshToken) {
         return res.status(401).json({
           status: CommonConstants.FAILURE_STATUS,
           message: "Admin refresh token required",
-          isAdminAuth: true
+          isAdminAuth: true,
         });
       }
 
-      const newTokens = this.adminAuthService.refreshAdminToken(refreshToken);
-      
+      const newTokens = await this.adminAuthService.refreshAdminToken(refreshToken);
+
       if (!newTokens) {
         return res.status(401).json({
           status: CommonConstants.FAILURE_STATUS,
           message: "Invalid admin refresh token",
-          isAdminAuth: true
+          isAdminAuth: true,
         });
       }
 
       req.newAdminTokens = newTokens;
-      next();
+      return next();
     } catch (error) {
       console.error("Admin token refresh error:", error);
       return res.status(500).json({
         status: CommonConstants.FAILURE_STATUS,
         message: "Admin token refresh failed",
-        isAdminAuth: true
+        isAdminAuth: true,
       });
     }
   }
 
   // Clear admin session
-  clearAdminSession(adminId, tokenId) {
+  async clearAdminSession(adminId, tokenId) {
     const sessionKey = `${adminId}_${tokenId}`;
-    this.adminSessions.delete(sessionKey);
+    await this.adminSessionsKV.delete(sessionKey);
   }
 
   // Clear all sessions for an admin
-  clearAllAdminSessions(adminId) {
-    for (const [key] of this.adminSessions) {
-      if (key.startsWith(`${adminId}_`)) {
-        this.adminSessions.delete(key);
-      }
-    }
+  async clearAllAdminSessions(adminId) {
+    const prefix = `${adminId}_`;
+    let cursor;
+    do {
+      const page = await this.adminSessionsKV.list(cursor ? { prefix, cursor } : { prefix });
+      await Promise.all(page.keys.map((key) => this.adminSessionsKV.delete(key.name)));
+      cursor = page.list_complete ? undefined : page.cursor;
+    } while (cursor);
   }
 
   // Get active admin sessions
-  getActiveAdminSessions() {
+  async getActiveAdminSessions() {
     const sessions = [];
     const now = new Date();
-    
-    for (const [key, session] of this.adminSessions) {
-      const inactiveTime = (now - session.lastActivity) / 1000 / 60; // in minutes
-      
-      // Remove sessions inactive for more than 2 hours
-      if (inactiveTime > 120) {
-        this.adminSessions.delete(key);
-      } else {
+    let cursor;
+    do {
+      const page = await this.adminSessionsKV.list(cursor ? { cursor } : {});
+      for (const key of page.keys) {
+        const raw = await this.adminSessionsKV.get(key.name);
+        if (!raw) continue;
+        const session = JSON.parse(raw);
+        const inactiveMinutes = Math.floor((now - new Date(session.lastActivity)) / 1000 / 60);
         sessions.push({
-          sessionKey: key,
+          sessionKey: key.name,
           ...session,
-          inactiveMinutes: Math.floor(inactiveTime)
+          inactiveMinutes,
         });
       }
-    }
-    
+      cursor = page.list_complete ? undefined : page.cursor;
+    } while (cursor);
+
     return sessions;
   }
 }

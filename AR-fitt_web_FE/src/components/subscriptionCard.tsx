@@ -3,7 +3,6 @@ import { Button, Grid } from "@mui/material";
 import CONSTANTS from "../utils/constants/CONSTANTS";
 import { useDispatch, useSelector } from "react-redux";
 import { setCurrentForm, setErrorMsg } from "../redux/signup/SignupActions";
-import { loadStripe } from "@stripe/stripe-js";
 import { useNavigate } from "react-router-dom";
 import { useMutation } from "react-query";
 import signupService from "../services/signup.service";
@@ -45,7 +44,6 @@ const SubscriptionCard: React.FC<SubscriptionCard> = ({
     else if (title === "Yearly") return "/Year";
   };
 
-  loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY as string);
   const getPriceId = () => {
     if (title === "One Time")
       return process.env.REACT_APP_ONE_TIME_PLAN_PRICE_ID;

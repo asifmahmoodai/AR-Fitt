@@ -8,8 +8,12 @@ const invalidTokenResponse = new APIResponseMessage(
 );
 
 export class AuthServiceMiddleware {
-  verifyToken(userTypes, req, res, next) {
-    const authService = new AuthService();
+  constructor(config) {
+    this.config = config;
+  }
+
+  async verifyToken(userTypes, req, res, next) {
+    const authService = new AuthService(this.config);
     const token = req.headers.authorization?.split(" ")[1];
     if (!token) {
       return res
@@ -17,7 +21,7 @@ export class AuthServiceMiddleware {
         .send(JSON.stringify(invalidTokenResponse));
     }
 
-    const returnedValues = authService.verifyAccessToken(token, userTypes);
+    const returnedValues = await authService.verifyAccessToken(token, userTypes);
     if (!returnedValues[0]) {
       return res
         .status(APIResponseConstants.INVALID_TOKEN_STATUS_CODE)
@@ -25,6 +29,6 @@ export class AuthServiceMiddleware {
     }
 
     req.userType = returnedValues[1];
-    next();
+    return next();
   }
 }

@@ -1,5 +1,4 @@
 import { v4 } from "uuid";
-import crypto from "crypto";
 import otpGenerator from "otp-generator";
 import util from "util";
 import { CommonConstants } from "../../infra/utils/common/Constants.js";
@@ -7,6 +6,7 @@ import { UserOTP } from "../../entities/UserOTP.js";
 import { APIResponse } from "../../infra/utils/api_response/APIResponse.js";
 import { APIResponseMessage } from "../../infra/utils/api_response/APIResponseMessage.js";
 import { APIResponseConstants } from "../../infra/utils/api_response/APIResponseConstants.js";
+import { hashPassword } from "../../middleware/crypto/passwordHashing.js";
 
 export class RequestOTPUseCase {
   constructor(userOTPRespository, emailServiceAdapter) {
@@ -22,10 +22,11 @@ export class RequestOTPUseCase {
     });
 
     var currentDateTime = new Date().toISOString();
+    const otpHash = await hashPassword(otp);
     const newUserOTP = new UserOTP(
       v4(),
       email,
-      crypto.createHash("sha1").update(otp).digest("hex"),
+      otpHash,
       currentDateTime,
       currentDateTime
     );

@@ -1,8 +1,8 @@
-import crypto from "crypto";
 import { UserCredential } from "../../entities/UserCredential.js";
 import { APIResponse } from "../../infra/utils/api_response/APIResponse.js";
 import { APIResponseMessage } from "../../infra/utils/api_response/APIResponseMessage.js";
 import { APIResponseConstants } from "../../infra/utils/api_response/APIResponseConstants.js";
+import { hashPassword } from "../../middleware/crypto/passwordHashing.js";
 
 export class ResetUserCredentialUseCase {
   constructor(userCredentialRepository) {
@@ -11,9 +11,10 @@ export class ResetUserCredentialUseCase {
 
   async execute(email, password) {
     var currentDateTime = new Date().toISOString();
+    const passwordHash = await hashPassword(password);
     var newUserCredential = new UserCredential(
       email,
-      crypto.createHash("sha1").update(password).digest("hex"),
+      passwordHash,
       null,
       currentDateTime
     );

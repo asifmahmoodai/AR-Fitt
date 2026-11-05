@@ -25,6 +25,11 @@
     "type": "link"
   },
   {
+    "name": "DOWNLOAD APP",
+    "link": "/download-app",
+    "type": "link"
+  },
+  {
     "name": "Login",
     "link": "/login",
     "type": "button"

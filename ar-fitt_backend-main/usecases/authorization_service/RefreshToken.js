@@ -10,7 +10,7 @@ export class RefreshTokenUseCase {
 
   async execute(refreshToken, clientType, userTypes) {
     const refreshTokenPayload =
-      this.authServiceMiddleware.verifyRefreshToken(refreshToken);
+      await this.authServiceMiddleware.verifyRefreshToken(refreshToken);
     if (refreshTokenPayload == null) {
       return new APIResponse(
         new APIResponseMessage(
@@ -35,7 +35,7 @@ export class RefreshTokenUseCase {
       );
     }
 
-    const token = this.authServiceMiddleware.generateToken(
+    const token = await this.authServiceMiddleware.generateToken(
       refreshTokenPayload["sub"],
       clientType,
       refreshTokenPayload["userType"]

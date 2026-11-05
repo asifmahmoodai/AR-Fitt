@@ -22,6 +22,9 @@ const SuggestedItems: React.FC = () => {
   const selectedCategory = useSelector(
     (state: RootState) => state.main.selectedCategory
   );
+  const hideRecommendedSize = ["jeans", "shorts"].includes(
+    (selectedCategory?.category?.name || "").trim().toLowerCase()
+  );
 
   const userDetails = useSelector((state: any) => state.signup.userDetails);
   console.log("userDetails", userDetails);
@@ -315,15 +318,6 @@ const SuggestedItems: React.FC = () => {
       }
     }
   };
-  // Helper to get selected colors as array - gets colors from localStorage
-  const getSelectedColorsArray = (userId: string) => {
-    const storageKey = `recommendedColors_${userId}`;
-    const storedColors = localStorage.getItem(storageKey);
-    if (storedColors) {
-      return storedColors.split(",").map((c) => c.trim().toLowerCase());
-    }
-    return [];
-  };
   // JSX
   return (
     <Grid
@@ -351,8 +345,8 @@ const SuggestedItems: React.FC = () => {
           <h1 className="font-Dhurjati text-[220%] font-normal text-gray-300 leading-[1] p-0">
           {selectedCategory?.category?.name}
           <span style={{ fontSize: '50%', top: 0 }}>
-            {typeQueryParamTrigger == 'Apparel'
-              ? `[Recommended Size is ${userDetails.recommendedSize}]`
+            {typeQueryParamTrigger === 'Apparel'
+              ? (hideRecommendedSize ? "" : `[Recommended Size is ${userDetails.recommendedSize}]`)
               : (selectedCategory?.category?.name === 'Lipstick' || selectedCategory?.category?.name === 'Foundation' || selectedCategory?.category?.name === 'Maskara')
                 ? `[Recommended Colors are: ${getRandomColors( ['red', 'blue', 'green', 'yellow', 'orange', 'purple', 'pink', 'brown', 'black', 'white',
                     'gray', 'grey', 'silver', 'gold', 'beige', 'cream', 'ivory', 'tan', 'bronze', 'copper',
@@ -380,20 +374,10 @@ const SuggestedItems: React.FC = () => {
           className="flex flex-wrap w-full max-mui_md:justify-center"
         >
           {items?.length > 0 ? (
-            (
-              typeQueryParamTrigger === 'Apparel'
-                ? items
-                : items.filter((item: any) => {
-                    const selectedColors = getSelectedColorsArray(userId);
-                    return selectedColors.some(color =>
-                      item?.name?.toLowerCase().includes(color)
-                    );
-                    console.log("selectedColors", selectedColors);
-                  })
-            ).map((item: any, index: React.Key | null | undefined) => (
+            items.map((item: any) => (
               <Grid
                 item
-                key={index}
+                key={item.id}
                 className="w-[100%] mui_sm:w-[45%] mui_md:w-[48%] mui_lg:w-[32%] min-h-[320px]"
               >
                 <ItemCard item={item} />

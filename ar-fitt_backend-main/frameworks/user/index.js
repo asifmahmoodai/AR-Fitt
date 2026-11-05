@@ -24,74 +24,79 @@ import { UserCredentialValidation } from "../../middleware/data_validation/UserC
 import { EmailValidation } from "../../middleware/data_validation/EmailValidation.js";
 import { UpdateUserValidation } from "../../middleware/data_validation/UpdateUserValidation.js";
 
-const userRepository = new UserRepository();
-const userCredentialRepository = new UserCredentialRepository();
-const userOTPRepository = new UserOTPRepository();
-const userSubscriptionRepository = new UserSubscriptionRepository();
-const emailServiceAdapter = new EmailServiceAdapter();
-const paymentServiceAdapter = new PaymentServiceAdapter();
-const authService = new AuthService();
-const authServiceMiddleware = new AuthServiceMiddleware();
-const commonHeaders = new Headers();
-const emailValidation = new EmailValidation();
-const userValidation = new UserValidation();
-const verifyOTPValidation = new VerifyOTPValidation();
-const userCredentialValidation = new UserCredentialValidation();
-const updateUserValidation = new UpdateUserValidation();
+// Rebuilt once per request (see adapters/hono/expressCompat.js) since the Prisma
+// client itself must be constructed per request on Workers.
+export function buildUserController(appContext) {
+  const userRepository = new UserRepository(appContext.prisma);
+  const userCredentialRepository = new UserCredentialRepository(appContext.prisma);
+  const userOTPRepository = new UserOTPRepository(appContext.prisma);
+  const userSubscriptionRepository = new UserSubscriptionRepository(appContext.prisma);
+  const emailServiceAdapter = new EmailServiceAdapter(appContext.config);
+  const paymentServiceAdapter = new PaymentServiceAdapter(appContext.config);
+  const authService = new AuthService(appContext.config);
+  const authServiceMiddleware = new AuthServiceMiddleware(appContext.config);
+  const commonHeaders = new Headers();
+  const emailValidation = new EmailValidation();
+  const userValidation = new UserValidation();
+  const verifyOTPValidation = new VerifyOTPValidation();
+  const userCredentialValidation = new UserCredentialValidation();
+  const updateUserValidation = new UpdateUserValidation();
 
-const registerUserUseCase = new RegisterUserUseCase(
-  userRepository,
-  userCredentialRepository
-);
-const verifyUserCredentialUseCase = new VerifyUserCredentialUseCase(
-  userRepository,
-  userCredentialRepository
-);
-const verifyUserExistenceUseCase = new VerifyUserExistenceUseCase(
-  userRepository,
-  userCredentialRepository
-);
-const requestPasswordResetUseCase = new RequestPasswordResetUseCase(
-  emailServiceAdapter,
-  userRepository,
-  authService
-);
-const resetUserCredentialUseCase = new ResetUserCredentialUseCase(
-  userCredentialRepository
-);
-const requestOTPUseCase = new RequestOTPUseCase(
-  userOTPRepository,
-  emailServiceAdapter
-);
-const verifyOTPUseCase = new VerifyOTPUseCase(
-  userOTPRepository,
-  userRepository
-);
-const updateUserUseCase = new UpdateUserUseCase(userRepository);
-const subscriptionStatusUseCase = new SubscriptionStatusUseCase(userRepository, paymentServiceAdapter);
-const userSubscriptionDetailsUseCase = new UserSubscriptionDetailsUseCase(
-  userRepository,
-  userSubscriptionRepository,
-  paymentServiceAdapter
-);
+  const registerUserUseCase = new RegisterUserUseCase(
+    userRepository,
+    userCredentialRepository
+  );
+  const verifyUserCredentialUseCase = new VerifyUserCredentialUseCase(
+    userRepository,
+    userCredentialRepository
+  );
+  const verifyUserExistenceUseCase = new VerifyUserExistenceUseCase(
+    userRepository,
+    userCredentialRepository
+  );
+  const requestPasswordResetUseCase = new RequestPasswordResetUseCase(
+    emailServiceAdapter,
+    userRepository,
+    authService,
+    appContext.config
+  );
+  const resetUserCredentialUseCase = new ResetUserCredentialUseCase(
+    userCredentialRepository
+  );
+  const requestOTPUseCase = new RequestOTPUseCase(
+    userOTPRepository,
+    emailServiceAdapter
+  );
+  const verifyOTPUseCase = new VerifyOTPUseCase(
+    userOTPRepository,
+    userRepository
+  );
+  const updateUserUseCase = new UpdateUserUseCase(userRepository);
+  const subscriptionStatusUseCase = new SubscriptionStatusUseCase(userRepository, paymentServiceAdapter);
+  const userSubscriptionDetailsUseCase = new UserSubscriptionDetailsUseCase(
+    userRepository,
+    userSubscriptionRepository,
+    paymentServiceAdapter
+  );
 
-export const userController = new UserController(
-  registerUserUseCase,
-  verifyUserCredentialUseCase,
-  verifyUserExistenceUseCase,
-  requestPasswordResetUseCase,
-  resetUserCredentialUseCase,
-  requestOTPUseCase,
-  verifyOTPUseCase,
-  updateUserUseCase,
-  subscriptionStatusUseCase,
-  userSubscriptionDetailsUseCase,
-  authService,
-  authServiceMiddleware,
-  commonHeaders,
-  emailValidation,
-  userValidation,
-  verifyOTPValidation,
-  userCredentialValidation,
-  updateUserValidation
-);
+  return new UserController(
+    registerUserUseCase,
+    verifyUserCredentialUseCase,
+    verifyUserExistenceUseCase,
+    requestPasswordResetUseCase,
+    resetUserCredentialUseCase,
+    requestOTPUseCase,
+    verifyOTPUseCase,
+    updateUserUseCase,
+    subscriptionStatusUseCase,
+    userSubscriptionDetailsUseCase,
+    authService,
+    authServiceMiddleware,
+    commonHeaders,
+    emailValidation,
+    userValidation,
+    verifyOTPValidation,
+    userCredentialValidation,
+    updateUserValidation
+  );
+}

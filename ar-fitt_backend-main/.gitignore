@@ -1,7 +1,15 @@
 node_modules
 # Keep environment variables out of version control
 .env*
+.dev.vars
 .DS_Store
 .vscode
 database_setup/schema_statements/.DS_Store
 database_setup/.DS_Store
+
+# Cloudflare Workers / Prisma generated output
+.wrangler
+infra/db/generated
+
+# Uploaded Android releases
+app_releases/

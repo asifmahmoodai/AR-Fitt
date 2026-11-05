@@ -9,9 +9,9 @@ const createUserBodyImageSchema = Joi.object({
     otherwise: Joi.string().required(),
   }),
   email: Joi.string().when({
-    is: Joi.string().email().empty(""),
+    is: Joi.string().email({ tlds: { allow: false } }).empty(""),
     then: Joi.optional(),
-    otherwise: Joi.string().email().required(),
+    otherwise: Joi.string().email({ tlds: { allow: false } }).required(),
   }),
   bodyImage: Joi.string().required(),
 });

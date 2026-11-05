@@ -1,6 +1,5 @@
-import express from "express";
+import { mountExpressController } from "../../hono/expressCompat.js";
 import util from "util";
-import bodyParser from "body-parser";
 import { fileTypeFromBuffer } from "file-type";
 import { APIResponseMessage } from "../../../infra/utils/api_response/APIResponseMessage.js";
 import { APIResponseConstants } from "../../../infra/utils/api_response/APIResponseConstants.js";
@@ -249,58 +248,40 @@ export class UserFaceImageController {
     }
   }
 
-  createExpressController() {
-    const router = new express.Router();
+  static registerRoutes(app, buildController) {
+    const router = mountExpressController(app, buildController);
     router.post(
       "/faceImage",
-      bodyParser.json({ limit: CommonConstants.BODY_PARSER_MAX_LIMIT }),
-      this.commonHeaders.addCommonHeaders.bind(this),
-      this.authServiceMiddleware.verifyToken.bind(
-        this,
-        CommonConstants.ALL_USERS_ACCESS
-      ),
-      this.createUserFaceImageValidation.validate.bind(this),
-      this.createUserFaceImage.bind(this)
+      (c, req, res, next) => c.commonHeaders.addCommonHeaders(req, res, next),
+      (c, req, res, next) => c.authServiceMiddleware.verifyToken(CommonConstants.ALL_USERS_ACCESS, req, res, next),
+      (c, req, res, next) => c.createUserFaceImageValidation.validate(req, res, next),
+      (c, req, res) => c.createUserFaceImage(req, res)
     );
     router.get(
       "/faceImage/:userID",
-      express.json(),
-      this.commonHeaders.addCommonHeaders.bind(this),
-      this.fetchUserFaceImage.bind(this)
+      (c, req, res, next) => c.commonHeaders.addCommonHeaders(req, res, next),
+      (c, req, res) => c.fetchUserFaceImage(req, res)
     );
     router.put(
       "/faceImage",
-      bodyParser.json({ limit: CommonConstants.BODY_PARSER_MAX_LIMIT }),
-      this.commonHeaders.addCommonHeaders.bind(this),
-      this.authServiceMiddleware.verifyToken.bind(
-        this,
-        CommonConstants.ALL_USERS_ACCESS
-      ),
-      this.createUserFaceImageValidation.validate.bind(this),
-      this.updateUserFaceImage.bind(this)
+      (c, req, res, next) => c.commonHeaders.addCommonHeaders(req, res, next),
+      (c, req, res, next) => c.authServiceMiddleware.verifyToken(CommonConstants.ALL_USERS_ACCESS, req, res, next),
+      (c, req, res, next) => c.createUserFaceImageValidation.validate(req, res, next),
+      (c, req, res) => c.updateUserFaceImage(req, res)
     );
     router.delete(
       "/faceImage",
-      express.json(),
-      this.commonHeaders.addCommonHeaders.bind(this),
-      this.authServiceMiddleware.verifyToken.bind(
-        this,
-        CommonConstants.ALL_USERS_ACCESS
-      ),
-      this.fetchUserImageURLValidation.validate.bind(this),
-      this.deleteUserFaceImage.bind(this)
+      (c, req, res, next) => c.commonHeaders.addCommonHeaders(req, res, next),
+      (c, req, res, next) => c.authServiceMiddleware.verifyToken(CommonConstants.ALL_USERS_ACCESS, req, res, next),
+      (c, req, res, next) => c.fetchUserImageURLValidation.validate(req, res, next),
+      (c, req, res) => c.deleteUserFaceImage(req, res)
     );
     router.get(
       "/faceImage",
-      express.json(),
-      this.commonHeaders.addCommonHeaders.bind(this),
-      this.authServiceMiddleware.verifyToken.bind(
-        this,
-        CommonConstants.ALL_USERS_ACCESS
-      ),
-      this.fetchUserImageURLValidation.validate.bind(this),
-      this.fetchUserFaceImageURL.bind(this)
+      (c, req, res, next) => c.commonHeaders.addCommonHeaders(req, res, next),
+      (c, req, res, next) => c.authServiceMiddleware.verifyToken(CommonConstants.ALL_USERS_ACCESS, req, res, next),
+      (c, req, res, next) => c.fetchUserImageURLValidation.validate(req, res, next),
+      (c, req, res) => c.fetchUserFaceImageURL(req, res)
     );
-    return router;
   }
 }

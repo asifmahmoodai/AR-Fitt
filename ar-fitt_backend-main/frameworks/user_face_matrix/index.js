@@ -8,33 +8,37 @@ import { DeleteUserFaceMatrixUseCase } from "../../usecases/user/face_matrix/Del
 import { AuthServiceMiddleware } from "../../middleware/authorization_service/usecases/AuthServiceMiddleware.js";
 import { Headers } from "../../middleware/common/headers.js";
 
-const userRepository = new UserRepository();
-const userFaceMatrixRepository = new UserFaceMatrixRepository();
-const authServiceMiddleware = new AuthServiceMiddleware();
-const commonHeaders = new Headers();
+// Rebuilt once per request (see adapters/hono/expressCompat.js) since the Prisma
+// client itself must be constructed per request on Workers.
+export function buildUserFaceMatrixController(appContext) {
+  const userRepository = new UserRepository(appContext.prisma);
+  const userFaceMatrixRepository = new UserFaceMatrixRepository(appContext.prisma);
+  const authServiceMiddleware = new AuthServiceMiddleware(appContext.config);
+  const commonHeaders = new Headers();
 
-const createUserFaceMatrixUseCase = new CreateUserFaceMatrixUseCase(
-  userRepository,
-  userFaceMatrixRepository
-);
-const fetchUserFaceMatrixUseCase = new FetchUserFaceMatrixUseCase(
-  userRepository,
-  userFaceMatrixRepository
-);
-const updateUserFaceMatrixUseCase = new UpdateUserFaceMatrixUseCase(
-  userRepository,
-  userFaceMatrixRepository
-);
-const deleteUserFaceMatrixUseCase = new DeleteUserFaceMatrixUseCase(
-  userRepository,
-  userFaceMatrixRepository
-);
+  const createUserFaceMatrixUseCase = new CreateUserFaceMatrixUseCase(
+    userRepository,
+    userFaceMatrixRepository
+  );
+  const fetchUserFaceMatrixUseCase = new FetchUserFaceMatrixUseCase(
+    userRepository,
+    userFaceMatrixRepository
+  );
+  const updateUserFaceMatrixUseCase = new UpdateUserFaceMatrixUseCase(
+    userRepository,
+    userFaceMatrixRepository
+  );
+  const deleteUserFaceMatrixUseCase = new DeleteUserFaceMatrixUseCase(
+    userRepository,
+    userFaceMatrixRepository
+  );
 
-export const userFaceMatrixController = new UserFaceMatrixController(
-  createUserFaceMatrixUseCase,
-  fetchUserFaceMatrixUseCase,
-  updateUserFaceMatrixUseCase,
-  deleteUserFaceMatrixUseCase,
-  authServiceMiddleware,
-  commonHeaders
-);
+  return new UserFaceMatrixController(
+    createUserFaceMatrixUseCase,
+    fetchUserFaceMatrixUseCase,
+    updateUserFaceMatrixUseCase,
+    deleteUserFaceMatrixUseCase,
+    authServiceMiddleware,
+    commonHeaders
+  );
+}

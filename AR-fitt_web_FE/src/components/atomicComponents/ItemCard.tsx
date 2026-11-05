@@ -8,6 +8,7 @@ import {
   setOpenCameraModule,
   setSelectedItem,
 } from "../../redux/main/mainActions";
+import { getProductImageUrl } from "../../utils/productImage";
 
 interface ItemCardProps {
   item: any;
@@ -43,11 +44,10 @@ const ItemCard: React.FC<ItemCardProps> = ({ item }) => {
   console.log("Items image");
 
   const getRenderableImage = async () => {
-    // const validatedImageSource = await validateImage(
-    //   `${process.env.REACT_APP_NODE_BACKEND_BASE_URL}${item?.itemImagesURLs[0]?.imageURL}`
-    // );
-
-    const validatedImageSource = `${process.env.REACT_APP_NODE_BACKEND_BASE_URL}/product_images/${item?.itemImagesURLs[0]?.imageURL}`;
+    const imageUrl = getProductImageUrl(item?.itemImagesURLs?.[0]?.imageURL);
+    const validatedImageSource = imageUrl
+      ? await validateImage(imageUrl)
+      : "/assets/images/placeHolderImage.jpeg";
 
     setImageSource(validatedImageSource);
   };

@@ -16,31 +16,10 @@ export class CreateSubscriptionUseCase {
     this.paymentServiceUserRepository = paymentServiceUserRepository;
   }
 
- 
-
-  async execute(userEmail, priceID) 
-  { console.log("execute");
-    console.log("priceID", priceID);
-    console.log("userEmail", userEmail);
-    let repoReturnedValues = await this.userRepository.getUserByEmail(
-      userEmail
-    );
-    console.log("repoReturnedValues", repoReturnedValues);
-    if (repoReturnedValues[1] != null) {
-
-      console.log("repoReturnedValues[1]", repoReturnedValues[1]);
-
-      return new APIResponse(
-        new APIResponseMessage(
-          APIResponseConstants.INTERNAL_SERVER_ERROR_MESSAGE,
-          APIResponseConstants.INTERNAL_SERVER_ERROR_MESSAGE_CODE
-        ),
-        APIResponseConstants.INTERNAL_SERVER_ERROR_STATUS_CODE
-      );
-    }
-    if (!repoReturnedValues[0]) {
-
-      console.log("USER NOT EXIST");
+  async execute(userEmail, priceID) {
+    const [user, userError] = await this.userRepository.getUserByEmail(userEmail);
+    if (userError) return this.internalError();
+    if (!user) {
       return new APIResponse(
         new APIResponseMessage(
           APIResponseConstants.USER_NOT_EXIST_MESSAGE,
@@ -49,156 +28,73 @@ export class CreateSubscriptionUseCase {
         APIResponseConstants.ITEM_NOT_FOUND
       );
     }
-    const user = repoReturnedValues[0];
-    console.log("User object:", user);
+
     const userID = user.getID();
-    console.log("User ID:", userID);
-    console.log("User email:", user.getEmail());
-    console.log("User isSubscribed:", user.getIsSubscribed());
+    if (typeof userID !== "string" || !userID.trim()) return this.internalError();
 
-    // Validate user ID before proceeding
-    if (!userID || typeof userID !== 'string' || userID.trim() === '') {
-      console.log("Invalid user ID:", userID);
+    const [userSubscription, subscriptionError] =
+      await this.userSubscriptionRespository.getUserSubscriptionByUserID(userID);
+    if (subscriptionError) return this.internalError();
+
+    // A subscription record may exist before the first invoice is paid. In
+    // either case, starting another Checkout session could charge twice.
+    if (userSubscription) {
       return new APIResponse(
         new APIResponseMessage(
-          APIResponseConstants.INTERNAL_SERVER_ERROR_MESSAGE,
-          APIResponseConstants.INTERNAL_SERVER_ERROR_MESSAGE_CODE
+          "A subscription already exists for this user.",
+          "subscription_already_exists"
         ),
-        APIResponseConstants.INTERNAL_SERVER_ERROR_STATUS_CODE
+        APIResponseConstants.CONFLICTED_REQUEST
       );
     }
 
-    repoReturnedValues =
-      await this.userSubscriptionRespository.getUserSubscriptionByUserID(
-        userID
+    const [paymentServiceUser, customerError] =
+      await this.paymentServiceUserRepository.getPaymentServiceUserByUserID(userID);
+    if (customerError) return this.internalError();
+
+    // Reuse the Stripe customer for renewals. The is_subscribed flag can lag
+    // behind webhook updates, so it cannot determine which customer to use.
+    const sessionParams = paymentServiceUser
+      ? { customer: paymentServiceUser.getPaymentServiceUserID() }
+      : { customer_email: user.getEmail() };
+
+    const [checkoutURL, checkoutError] =
+      await this.paymentServiceAdapter.createCheckoutSession(
+        userID,
+        priceID,
+        sessionParams
       );
-
-    console.log("repoReturnedValuesubscription", repoReturnedValues);
-
-    if (repoReturnedValues[1] != null) {
-
-      console.log("repoReturnedValues[1] subscription", repoReturnedValues[1]);
-      return new APIResponse(
-        new APIResponseMessage(
-          APIResponseConstants.INTERNAL_SERVER_ERROR_MESSAGE,
-          APIResponseConstants.INTERNAL_SERVER_ERROR_MESSAGE_CODE
-        ),
-        APIResponseConstants.INTERNAL_SERVER_ERROR_STATUS_CODE
-      );
-    }
-    let userSubscription = null;
-    if (!!repoReturnedValues[0]) {
-      userSubscription = repoReturnedValues[0];
-      console.log("Found existing user subscription:", userSubscription);
-    } else {
-      console.log("No existing user subscription found");
-    }
-
-    repoReturnedValues =
-      await this.paymentServiceUserRepository.getPaymentServiceUserByUserID(
-        userID
-      );
-    console.log("repoReturnedValues paymentServiceUser", repoReturnedValues);
-    
-    if (repoReturnedValues[1] != null) {
-
-      console.log("repoReturnedValues[1] paymentServiceUser", repoReturnedValues[1]);
-      return new APIResponse(
-        new APIResponseMessage(
-          APIResponseConstants.INTERNAL_SERVER_ERROR_MESSAGE,
-          APIResponseConstants.INTERNAL_SERVER_ERROR_MESSAGE_CODE
-        ),
-        APIResponseConstants.INTERNAL_SERVER_ERROR_STATUS_CODE
-      );
-    }
-    let paymentServiceUser = null;
-    if (!!repoReturnedValues[0]) {
-      paymentServiceUser = repoReturnedValues[0];
-      console.log("Found existing payment service user:", paymentServiceUser);
-    } else {
-      console.log("No existing payment service user found");
-    }
-
-    let sessionParams;
-
-    // Debug logging
-    console.log("userSubscription:", userSubscription);
-    console.log("paymentServiceUser:", paymentServiceUser);
-    console.log("user.getIsSubscribed():", user.getIsSubscribed());
-
-    if (!userSubscription && !paymentServiceUser && !user.getIsSubscribed()) {
-      // Case 1: when we have a newly registered user
-      console.log("Case 1: New user - creating checkout with email");
-      sessionParams = {
-        customer_email: user.getEmail(),
-      };
-    } else if (
-      !userSubscription &&
-      !!paymentServiceUser &&
-      !user.getIsSubscribed()
+    if (
+      checkoutError?.type === "StripeInvalidRequestError" &&
+      checkoutError?.code === "resource_missing" &&
+      checkoutError?.param === "line_items[0][price]"
     ) {
-      // Case 2: when the user is renewing the subscription (subscription was cancelled before)
-      console.log("Case 2: Renewing user - creating checkout with existing customer");
-      sessionParams = {
-        customer: paymentServiceUser.getPaymentServiceUserID(),
-      };
-    } else if (user.getIsSubscribed()) {
-      // Case 3: User is marked as subscribed but has no subscription records
-      // This is a data inconsistency - fix it by allowing subscription creation
-      console.log("Case 3: User marked as subscribed but no subscription records found - fixing data inconsistency");
-      console.log("Allowing subscription creation to fix the data state");
-      
-      // Reset the user's subscription status to false since no records exist
-      await this.userRepository.markUserUnsubscribedByEmail(user.getEmail());
-      
-      // Proceed with Case 1: New user subscription
-      console.log("Case 1: Creating checkout with email after fixing data state");
-      sessionParams = {
-        customer_email: user.getEmail(),
-      };
-    } else {
-      // Case 4: Unexpected state - log details and return error
-      console.log("ELSE - Unexpected state:");
-      console.log("- userSubscription:", !!userSubscription);
-      console.log("- paymentServiceUser:", !!paymentServiceUser);
-      console.log("- user.getIsSubscribed():", user.getIsSubscribed());
-      
       return new APIResponse(
         new APIResponseMessage(
-          "Unexpected subscription state",
-          "UNEXPECTED_SUBSCRIPTION_STATE"
+          "Subscription plan is unavailable. Please refresh the page and try again.",
+          "invalid_subscription_price"
         ),
-        APIResponseConstants.INTERNAL_SERVER_ERROR_STATUS_CODE
+        APIResponseConstants.BAD_REQUEST
       );
     }
-
-    repoReturnedValues = await this.paymentServiceAdapter.createCheckoutSession(
-      userID,
-      priceID,
-      sessionParams
-    );
-    if (repoReturnedValues[1] != null || !repoReturnedValues[0]) {
-
-      console.log("repoReturnedValues[1] paymentServiceAdapter", repoReturnedValues[1]);
-      return new APIResponse(
-        new APIResponseMessage(
-          APIResponseConstants.INTERNAL_SERVER_ERROR_MESSAGE,
-          APIResponseConstants.INTERNAL_SERVER_ERROR_MESSAGE_CODE
-        ),
-        APIResponseConstants.INTERNAL_SERVER_ERROR_STATUS_CODE
-      );
-    }
-
-    const paymnetCheckoutSession = new PaymentCheckoutSession(
-      repoReturnedValues[0]
-    );
+    if (checkoutError || !checkoutURL) return this.internalError();
 
     return new APIResponse(
       new APIResponseMessage(
-        paymnetCheckoutSession,
+        new PaymentCheckoutSession(checkoutURL),
         APIResponseConstants.PAYMENT_CHECKOUT_SESSSION_CREATED_MESSAGE_CODE
       ),
       APIResponseConstants.ITEM_CREATED_STATUS_CODE
+    );
+  }
+
+  internalError() {
+    return new APIResponse(
+      new APIResponseMessage(
+        APIResponseConstants.INTERNAL_SERVER_ERROR_MESSAGE,
+        APIResponseConstants.INTERNAL_SERVER_ERROR_MESSAGE_CODE
+      ),
+      APIResponseConstants.INTERNAL_SERVER_ERROR_STATUS_CODE
     );
   }
 }

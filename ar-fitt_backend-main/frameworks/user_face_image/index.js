@@ -11,41 +11,45 @@ import { Headers } from "../../middleware/common/headers.js";
 import { CreateUserFaceImageValidation } from "../../middleware/data_validation/CreateUserFaceImageValidation.js";
 import { FetchUserImageURLValidation } from "../../middleware/data_validation/FetchUserImageURLValidation.js";
 
-const userRepository = new UserRepository();
-const userFaceImageRepository = new UserFaceImageRepository();
-const authServiceMiddleware = new AuthServiceMiddleware();
-const commonHeaders = new Headers();
-const createUserFaceImageValidation = new CreateUserFaceImageValidation();
-const fetchUserImageURLValidation = new FetchUserImageURLValidation();
+// Rebuilt once per request (see adapters/hono/expressCompat.js) since the Prisma
+// client itself must be constructed per request on Workers.
+export function buildUserFaceImageController(appContext) {
+  const userRepository = new UserRepository(appContext.prisma);
+  const userFaceImageRepository = new UserFaceImageRepository(appContext.prisma);
+  const authServiceMiddleware = new AuthServiceMiddleware(appContext.config);
+  const commonHeaders = new Headers();
+  const createUserFaceImageValidation = new CreateUserFaceImageValidation();
+  const fetchUserImageURLValidation = new FetchUserImageURLValidation();
 
-const createUserFaceImageUseCase = new CreateUserFaceImageUseCase(
-  userRepository,
-  userFaceImageRepository
-);
-const fetchUserFaceImageUseCase = new FetchUserFaceImageUseCase(
-  userFaceImageRepository
-);
-const updateUserFaceImageUseCase = new UpdateUserFaceImageUseCase(
-  userRepository,
-  userFaceImageRepository
-);
-const deleteUserFaceImageUseCase = new DeleteUserFaceImageUseCase(
-  userRepository,
-  userFaceImageRepository
-);
-const fetchUserFaceImageURLUseCase = new FetchUserFaceImageURLUseCase(
-  userRepository,
-  userFaceImageRepository
-);
+  const createUserFaceImageUseCase = new CreateUserFaceImageUseCase(
+    userRepository,
+    userFaceImageRepository
+  );
+  const fetchUserFaceImageUseCase = new FetchUserFaceImageUseCase(
+    userFaceImageRepository
+  );
+  const updateUserFaceImageUseCase = new UpdateUserFaceImageUseCase(
+    userRepository,
+    userFaceImageRepository
+  );
+  const deleteUserFaceImageUseCase = new DeleteUserFaceImageUseCase(
+    userRepository,
+    userFaceImageRepository
+  );
+  const fetchUserFaceImageURLUseCase = new FetchUserFaceImageURLUseCase(
+    userRepository,
+    userFaceImageRepository
+  );
 
-export const userFaceImageController = new UserFaceImageController(
-  createUserFaceImageUseCase,
-  fetchUserFaceImageUseCase,
-  updateUserFaceImageUseCase,
-  deleteUserFaceImageUseCase,
-  fetchUserFaceImageURLUseCase,
-  authServiceMiddleware,
-  commonHeaders,
-  createUserFaceImageValidation,
-  fetchUserImageURLValidation
-);
+  return new UserFaceImageController(
+    createUserFaceImageUseCase,
+    fetchUserFaceImageUseCase,
+    updateUserFaceImageUseCase,
+    deleteUserFaceImageUseCase,
+    fetchUserFaceImageURLUseCase,
+    authServiceMiddleware,
+    commonHeaders,
+    createUserFaceImageValidation,
+    fetchUserImageURLValidation
+  );
+}

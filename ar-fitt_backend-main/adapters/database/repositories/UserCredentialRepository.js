@@ -1,12 +1,13 @@
-import { PrismaClient } from "@prisma/client";
 import { UserCredential } from "../../../entities/UserCredential.js";
 
-const prisma = new PrismaClient();
-
 export class UserCredentialRepository {
+  constructor(prisma) {
+    this.prisma = prisma;
+  }
+
   async createUserCredential(userCredential) {
     try {
-      await prisma.user_credential.create({
+      await this.prisma.user_credential.create({
         data: {
           user_email: userCredential.getEmail(),
           password_hash: userCredential.getPasswordHash(),
@@ -23,7 +24,7 @@ export class UserCredentialRepository {
 
   async getUserCredentialByEmail(userEmail) {
     try {
-      const result = await prisma.user_credential.findUnique({
+      const result = await this.prisma.user_credential.findUnique({
         where: {
           user_email: userEmail,
         },
@@ -49,7 +50,7 @@ export class UserCredentialRepository {
 
   async updateUserCredential(userCredential) {
     try {
-      await prisma.user_credential.update({
+      await this.prisma.user_credential.update({
         where: {
           user_email: userCredential.getEmail(),
         },

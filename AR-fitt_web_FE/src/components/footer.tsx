@@ -68,6 +68,9 @@ const Footer = () => {
                 Features
               </a>
             </div>
+            <div>
+              <a href="/download-app" className="text-white no-underline">Download Android app</a>
+            </div>
           </div>
         </Grid>
         {/* contact */}

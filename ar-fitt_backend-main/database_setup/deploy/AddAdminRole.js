@@ -1,38 +1,11 @@
-import { PrismaClient } from "@prisma/client";
+import "dotenv/config";
 import { v4 as uuidv4 } from "uuid";
-import crypto from "crypto";
+import { buildPrismaClient } from "../../infra/db/prismaClient.js";
+import { hashPassword } from "../../middleware/crypto/passwordHashing.js";
 
-const prisma = new PrismaClient();
+const prisma = buildPrismaClient();
 
 export class AddAdminRole {
-  async addRoleColumn() {
-    try {
-      console.log("Adding role column to user table...");
-      
-      // Add role column to user table
-      await prisma.$executeRaw`
-        ALTER TABLE "user" 
-        ADD COLUMN IF NOT EXISTS "role" TEXT DEFAULT 'user'
-      `;
-      
-      console.log("Role column added successfully!");
-      
-      // Update existing users to have 'user' role
-      await prisma.$executeRaw`
-        UPDATE "user" 
-        SET "role" = 'user' 
-        WHERE "role" IS NULL
-      `;
-      
-      console.log("Existing users updated with 'user' role!");
-      
-      return true;
-    } catch (error) {
-      console.error("Error adding role column:", error);
-      return false;
-    }
-  }
-
   async createAdminUser() {
     try {
       console.log("Creating admin user...");
@@ -57,7 +30,7 @@ export class AddAdminRole {
         });
         
         if (!existingCreds) {
-          const hashedPassword = crypto.createHash("sha1").update("admin123").digest("hex");
+          const hashedPassword = await hashPassword("admin123");
           await prisma.user_credential.create({
             data: {
               user_email: "admin@arfitt.com",
@@ -69,7 +42,7 @@ export class AddAdminRole {
           console.log("Admin credentials created!");
         } else {
           // Update existing credentials with correct hash
-          const hashedPassword = crypto.createHash("sha1").update("admin123").digest("hex");
+          const hashedPassword = await hashPassword("admin123");
           await prisma.user_credential.update({
             where: { user_email: "admin@arfitt.com" },
             data: {
@@ -105,7 +78,7 @@ export class AddAdminRole {
       });
 
       // Create admin credentials
-      const hashedPassword = crypto.createHash("sha1").update("admin123").digest("hex");
+      const hashedPassword = await hashPassword("admin123");
       await prisma.user_credential.create({
         data: {
           user_email: "admin@arfitt.com",
@@ -129,12 +102,6 @@ export class AddAdminRole {
 
   async execute() {
     console.log("Starting admin role setup...");
-    
-    const roleAdded = await this.addRoleColumn();
-    if (!roleAdded) {
-      console.error("Failed to add role column");
-      return;
-    }
 
     const adminCreated = await this.createAdminUser();
     if (!adminCreated) {

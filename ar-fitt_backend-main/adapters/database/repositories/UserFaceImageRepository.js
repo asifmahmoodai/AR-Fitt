@@ -1,14 +1,15 @@
 import util from "util";
-import { PrismaClient } from "@prisma/client";
 import { UserFaceImage } from "../../../entities/UserFaceImage.js";
 import { UserFaceImageURL } from "../../../entities/UserFaceImageURL.js";
 
-const prisma = new PrismaClient();
-
 export class UserFaceImageRepository {
+  constructor(prisma) {
+    this.prisma = prisma;
+  }
+
   async createUserFaceImage(userFaceImage) {
     try {
-      await prisma.user_face_image.create({
+      await this.prisma.user_face_image.create({
         data: {
           user_id: userFaceImage.getUserID(),
           face_image: userFaceImage.getFaceImage(),
@@ -25,7 +26,7 @@ export class UserFaceImageRepository {
 
   async updateUserFaceImage(userFaceImage) {
     try {
-      await prisma.user_face_image.update({
+      await this.prisma.user_face_image.update({
         where: { user_id: userFaceImage.getUserID() },
         data: {
           face_image: userFaceImage.getFaceImage(),
@@ -41,7 +42,7 @@ export class UserFaceImageRepository {
 
   async deleteUserFaceImage(userID) {
     try {
-      await prisma.user_face_image.delete({
+      await this.prisma.user_face_image.delete({
         where: { user_id: userID },
       });
       return null;
@@ -53,7 +54,7 @@ export class UserFaceImageRepository {
 
   async getUserFaceImageByUserID(userID) {
     try {
-      const result = await prisma.user_face_image.findUnique({
+      const result = await this.prisma.user_face_image.findUnique({
         where: {
           user_id: userID,
         },
@@ -78,7 +79,7 @@ export class UserFaceImageRepository {
 
   async getUserFaceImageURLByUserID(userID) {
     try {
-      const result = await prisma.user_face_image.findUnique({
+      const result = await this.prisma.user_face_image.findUnique({
         where: {
           user_id: userID,
         },

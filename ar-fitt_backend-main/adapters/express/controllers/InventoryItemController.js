@@ -1,4 +1,4 @@
-import express from "express";
+import { mountExpressController } from "../../hono/expressCompat.js";
 import util from "util";
 import { fileTypeFromBuffer } from "file-type";
 import { APIResponseMessage } from "../../../infra/utils/api_response/APIResponseMessage.js";
@@ -118,34 +118,27 @@ export class InventoryItemController {
     }
   }
 
-  createExpressController() {
-    const router = new express.Router();
+  static registerRoutes(app, buildController) {
+    const router = mountExpressController(app, buildController);
     router.get(
       "/category/inventoryItems",
-      this.commonHeaders.addCommonHeaders.bind(this),
-      this.authServiceMiddleware.verifyToken.bind(
-        this,
-        CommonConstants.ALL_USERS_ACCESS
-      ),
-      this.inventoryCategoryValidation.validate.bind(this),
-      this.fetchCategoryInventoryItems.bind(this)
+      (c, req, res, next) => c.commonHeaders.addCommonHeaders(req, res, next),
+      (c, req, res, next) => c.authServiceMiddleware.verifyToken(CommonConstants.ALL_USERS_ACCESS, req, res, next),
+      (c, req, res, next) => c.inventoryCategoryValidation.validate(req, res, next),
+      (c, req, res) => c.fetchCategoryInventoryItems(req, res)
     );
     router.get(
       "/itemImage/:itemID/:imageURLID",
-      this.commonHeaders.addCommonHeaders.bind(this),
-      this.inventoryItemImageValidation.validate.bind(this),
-      this.fetchInventoryItemImage.bind(this)
+      (c, req, res, next) => c.commonHeaders.addCommonHeaders(req, res, next),
+      (c, req, res, next) => c.inventoryItemImageValidation.validate(req, res, next),
+      (c, req, res) => c.fetchInventoryItemImage(req, res)
     );
     router.get(
       "/inventoryItems",
-      this.commonHeaders.addCommonHeaders.bind(this),
-      this.authServiceMiddleware.verifyToken.bind(
-        this,
-        CommonConstants.ALL_USERS_ACCESS
-      ),
-      this.inventoryItemValidation.validate.bind(this),
-      this.fetchInventoryItems.bind(this)
+      (c, req, res, next) => c.commonHeaders.addCommonHeaders(req, res, next),
+      (c, req, res, next) => c.authServiceMiddleware.verifyToken(CommonConstants.ALL_USERS_ACCESS, req, res, next),
+      (c, req, res, next) => c.inventoryItemValidation.validate(req, res, next),
+      (c, req, res) => c.fetchInventoryItems(req, res)
     );
-    return router;
   }
 }
